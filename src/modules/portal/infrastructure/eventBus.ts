@@ -2,7 +2,7 @@ import { DomainEvent } from '../domain/common/types';
 
 type EventHandler<T = any> = (event: DomainEvent<T>) => void;
 
-class DomainEventBus {
+export class DomainEventBus {
   private handlers: Map<string, EventHandler[]> = new Map();
 
   public subscribe<T = any>(eventName: string, handler: EventHandler<T>): () => void {
