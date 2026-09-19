@@ -1,0 +1,673 @@
+import {
+  MindmapNode,
+  MindmapLink,
+  DocItem,
+  PortalScreen,
+  DataFlowNode,
+  DataFlowStream,
+  HistoryEvent,
+  AgentChatMessage,
+} from './types';
+
+export const INITIAL_NODES: MindmapNode[] = [
+  {
+    id: 'root',
+    label: 'Портал МИРОВИЗОР',
+    category: 'stack',
+    status: 'in_progress',
+    progress: 68,
+    x: 420,
+    y: 220,
+    description: 'Центральный каркас корпоративного портала ООО «Ромашка»',
+  },
+  // Backend & Stack Branch
+  {
+    id: 'stack-root',
+    parentId: 'root',
+    label: '🧩 Стек сервисов',
+    category: 'stack',
+    status: 'in_progress',
+    progress: 75,
+    x: 650,
+    y: 120,
+    description: 'Микросервисная архитектура backend-платформы',
+  },
+  {
+    id: 'billing-node',
+    parentId: 'stack-root',
+    label: 'Billing (Сервис платежей)',
+    category: 'stack',
+    status: 'in_progress',
+    progress: 60,
+    agent: 'Billing-агент',
+    agentRole: 'Генерация Saga-оркестратора',
+    isNew: true,
+    x: 880,
+    y: 80,
+    description: 'Управление транзакциями, списаниями и возвратами',
+    relatedDocId: 'adr-042',
+    relatedScreenId: 'screen-billing',
+    relatedFlowId: 'billing-service',
+  },
+  {
+    id: 'saga-pattern',
+    parentId: 'billing-node',
+    label: '⚙️ Паттерн Saga',
+    category: 'stack',
+    status: 'in_progress',
+    progress: 85,
+    agent: 'Billing-агент',
+    agentRole: 'Тестирование компенсирующих транзакций',
+    isNew: true,
+    x: 1080,
+    y: 40,
+    description: 'Распределённая транзакция: Order -> Payment -> Refund -> Notify',
+    relatedDocId: 'adr-042',
+    relatedFlowId: 'stream-billing-kafka',
+  },
+  {
+    id: 'refund-endpoint',
+    parentId: 'billing-node',
+    label: 'POST /refund',
+    category: 'stack',
+    status: 'in_progress',
+    progress: 70,
+    agent: 'API-агент',
+    isNew: true,
+    x: 1080,
+    y: 120,
+    description: 'Эндпоинт оформления возврата средств покупателю',
+    relatedDocId: 'api-refund',
+    relatedScreenId: 'screen-billing',
+  },
+  {
+    id: 'gateway-node',
+    parentId: 'stack-root',
+    label: 'API Gateway (Envoy)',
+    category: 'stack',
+    status: 'completed',
+    progress: 100,
+    x: 880,
+    y: 170,
+    description: 'Маршрутизация внешних запросов, rate-limiting и TLS offloading',
+  },
+  {
+    id: 'auth-node',
+    parentId: 'stack-root',
+    label: 'Auth & SSO (Keycloak)',
+    category: 'stack',
+    status: 'completed',
+    progress: 100,
+    x: 880,
+    y: 250,
+    description: 'Единая точка авторизации по протоколам OAuth2/OIDC',
+    relatedDocId: 'adr-041',
+  },
+  // UI & Screens Branch
+  {
+    id: 'ui-root',
+    parentId: 'root',
+    label: '🖼️ Интерфейс портала',
+    category: 'ui',
+    status: 'in_progress',
+    progress: 80,
+    x: 650,
+    y: 340,
+    description: 'Модули веб-интерфейса для сотрудников и контрагентов',
+  },
+  {
+    id: 'ui-orders',
+    parentId: 'ui-root',
+    label: '🏢 Продажи → Заказы',
+    category: 'ui',
+    status: 'completed',
+    progress: 100,
+    x: 880,
+    y: 330,
+    description: 'Реестр заказов с фильтрами, статусами и экспортом',
+    relatedScreenId: 'screen-orders',
+  },
+  {
+    id: 'ui-billing-menu',
+    parentId: 'ui-root',
+    label: '🏢 Меню Billing 🆕',
+    category: 'ui',
+    status: 'in_progress',
+    progress: 60,
+    agent: 'UI/UX-агент',
+    isNew: true,
+    x: 880,
+    y: 410,
+    description: 'Новый пункт бокового меню и карточка возвратов',
+    relatedScreenId: 'screen-billing',
+  },
+  // Infrastructure Branch
+  {
+    id: 'infra-root',
+    parentId: 'root',
+    label: '🏗️ Инфраструктура',
+    category: 'infra',
+    status: 'completed',
+    progress: 95,
+    x: 200,
+    y: 120,
+    description: 'Kubernetes кластер, брокер очередей и СУБД',
+  },
+  {
+    id: 'infra-k8s',
+    parentId: 'infra-root',
+    label: 'K8s Cluster (Replicas 5)',
+    category: 'infra',
+    status: 'completed',
+    progress: 100,
+    agent: 'Инфра-агент',
+    x: -30,
+    y: 80,
+    description: 'Масштабирование подов до 5 реплик в проде',
+  },
+  {
+    id: 'infra-kafka',
+    parentId: 'infra-root',
+    label: 'Kafka Broker (payments.refund)',
+    category: 'infra',
+    status: 'completed',
+    progress: 100,
+    x: -30,
+    y: 160,
+    description: 'Брокер сообщений для асинхронного взаимодействия саги',
+    relatedDocId: 'adr-040',
+  },
+  // Security & Docs
+  {
+    id: 'sec-root',
+    parentId: 'root',
+    label: '🔐 Безопасность & CI/CD',
+    category: 'security',
+    status: 'in_progress',
+    progress: 75,
+    x: 200,
+    y: 340,
+    description: 'Маскирование PII, аудит действий и проверки пайплайна',
+  },
+  {
+    id: 'sec-pii',
+    parentId: 'sec-root',
+    label: 'PII Маскирование карт',
+    category: 'security',
+    status: 'in_progress',
+    progress: 65,
+    agent: 'SecOps-агент',
+    x: -30,
+    y: 340,
+    description: 'Шифрование номеров карт и персональных данных в логах',
+  },
+];
+
+export const INITIAL_LINKS: MindmapLink[] = [
+  { id: 'l1', source: 'root', target: 'stack-root', isPulsing: true },
+  { id: 'l2', source: 'root', target: 'ui-root' },
+  { id: 'l3', source: 'root', target: 'infra-root' },
+  { id: 'l4', source: 'root', target: 'sec-root' },
+  { id: 'l5', source: 'stack-root', target: 'billing-node', isPulsing: true, isNew: true },
+  { id: 'l6', source: 'billing-node', target: 'saga-pattern', isPulsing: true, isNew: true },
+  { id: 'l7', source: 'billing-node', target: 'refund-endpoint', isPulsing: true, isNew: true },
+  { id: 'l8', source: 'stack-root', target: 'gateway-node' },
+  { id: 'l9', source: 'stack-root', target: 'auth-node' },
+  { id: 'l10', source: 'ui-root', target: 'ui-orders' },
+  { id: 'l11', source: 'ui-root', target: 'ui-billing-menu', isPulsing: true, isNew: true },
+  { id: 'l12', source: 'infra-root', target: 'infra-k8s' },
+  { id: 'l13', source: 'infra-root', target: 'infra-kafka' },
+  { id: 'l14', source: 'sec-root', target: 'sec-pii', isPulsing: true },
+  // Cross-domain links
+  { id: 'l15', source: 'saga-pattern', target: 'infra-kafka', label: 'события саги', isPulsing: true },
+  { id: 'l16', source: 'billing-node', target: 'ui-billing-menu', label: 'UI интеграция' },
+];
+
+export const MOCK_DOCS: DocItem[] = [
+  {
+    id: 'adr-042',
+    title: 'ADR-042: Механизм возврата платежей',
+    type: 'adr',
+    status: 'draft',
+    author: 'агент Billing',
+    relatedNodes: ['billing-node', 'saga-pattern', 'refund-endpoint'],
+    tags: ['Архитектура', 'Saga', 'Billing', 'Транзакции'],
+    lastModified: '2 минуты назад',
+    version: '0.4-draft',
+    content: `# ADR-042: Механизм возврата платежей
+
+**Статус:** 🔄 черновик (генерируется)  
+**Автор:** агент Billing  
+**Связано:** 🧩 Billing, ⚙️ Saga, 🌿 feature/refund-endpoint  
+**Утверждающие:** Иван Петров (Tech Lead), SecOps  
+
+---
+
+## Контекст
+Сервису Billing необходим надёжный автоматизированный механизм возврата платежей.  
+Существующий процесс — ручной, требует подтверждения бухгалтерии в 1С и занимает до 3 рабочих дней. При сбоях на стороне эквайера возникали расхождения между балансом заказа и статусом транзакции.
+
+## Требования
+1. Атомарность возврата с гарантированной отменой при сбоях банковского шлюза.
+2. Асинхронное уведомление клиента по SMS/Email через сервис Notify.
+3. Время реакции API на инициацию возврата < 250 мс.
+4. Полный журнал аудита для службы безопасности (маскирование PAN и CVC).
+
+## Решение
+Используем паттерн **Saga с оркестрацией** на базе Kafka и сервиса Billing:
+
+\`\`\`
+[Клиент/Менеджер] 
+       │ POST /refund
+       ▼
+[API Gateway] ──(gRPC)──▶ [Billing Service]
+                                │
+               ┌────────────────┴────────────────┐
+               │ 1. Блокировка суммы в БД         │
+               │ 2. Запрос в Bank Provider       │
+               │ 3. Публикация 'payment.refunded'│
+               └────────────────┬────────────────┘
+                                │
+                         [Kafka Topic]
+                                │
+                     [Notification Service]
+\`\`\`
+
+В случае сбоя эквайера запускается компенсирующая транзакция: снятие блокировки в PostgreSQL и перевод статуса заказа в \`REFUND_FAILED\` с алертом дежурному инженеру.
+
+## Альтернативы
+- **Двухфазный коммит (2PC):** Отклонён из-за блокировок ресурсов и низкой отказоустойчивости в облачной среде.
+- **Хореография Saga:** Отклонена из-за сложности отслеживания статуса и аудита инцидентов.
+`,
+  },
+  {
+    id: 'adr-041',
+    title: 'ADR-041: Аутентификация и SSO на базе Keycloak',
+    type: 'adr',
+    status: 'approved',
+    author: 'SecOps-агент',
+    relatedNodes: ['auth-node', 'gateway-node'],
+    tags: ['Безопасность', 'OAuth2', 'Keycloak'],
+    lastModified: 'Вчера, 11:20',
+    version: '1.0-final',
+    content: `# ADR-041: Аутентификация и SSO на базе Keycloak
+
+**Статус:** ✅ утверждён  
+**Автор:** SecOps-агент  
+**Утвердил:** Иван Петров  
+
+## Решение
+Все микросервисы портала делегируют аутентификацию шлюзу API Gateway с валидацией JWT-токенов, выпущенных корпоративным кластером Keycloak.
+Используется PKCE-поток для SPA-клиента и взаимный mTLS между внутренними сервисами.
+`,
+  },
+  {
+    id: 'adr-040',
+    title: 'ADR-040: Шина событий Kafka для асинхронного обмена',
+    type: 'adr',
+    status: 'approved',
+    author: 'Инфра-агент',
+    relatedNodes: ['infra-kafka'],
+    tags: ['Kafka', 'Events', 'Инфра'],
+    lastModified: '3 дня назад',
+    version: '1.2',
+    content: `# ADR-040: Шина событий Kafka
+
+**Статус:** ✅ утверждён  
+**Автор:** Инфра-агент  
+
+## Решение
+Развёрнут кластер Kafka из 3 брокеров в Kubernetes с репликацией топиков RF=3 и гарантией доставки \`acks=all\`. Топики:
+- \`orders.created\`
+- \`payments.charged\`
+- \`payments.refund\` (партиционирование по \`order_id\`)
+`,
+  },
+  {
+    id: 'api-refund',
+    title: 'POST /refund — Оформление возврата средств',
+    type: 'api',
+    status: 'draft',
+    author: 'API-агент',
+    relatedNodes: ['refund-endpoint', 'billing-node'],
+    tags: ['OpenAPI', 'REST', 'Billing'],
+    lastModified: '5 минут назад',
+    version: 'v2.4-preview',
+    content: `# OpenAPI 3.0: POST /api/v1/billing/refund
+
+**Статус:** 🔄 черновик (генерируется)  
+**Контракт:** \`openapi.yaml\`  
+
+### Запрос
+\`\`\`http
+POST /api/v1/billing/refund HTTP/1.1
+Host: api.mirovizor.internal
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOi...
+
+{
+  "order_id": "ORD-98421",
+  "amount": 14200.00,
+  "currency": "RUB",
+  "reason": "Возврат товара надлежащего качества",
+  "initiator_id": "usr-ivan-petrov"
+}
+\`\`\`
+
+### Ответ (202 Accepted)
+\`\`\`json
+{
+  "saga_id": "saga-ref-77492",
+  "status": "PROCESSING",
+  "order_id": "ORD-98421",
+  "estimated_completion_seconds": 12,
+  "created_at": "2026-09-19T09:32:00Z"
+}
+\`\`\`
+`,
+  },
+  {
+    id: 'api-payments',
+    title: 'GET /payments — Реестр платежей',
+    type: 'api',
+    status: 'approved',
+    author: 'API-агент',
+    relatedNodes: ['billing-node'],
+    tags: ['OpenAPI', 'REST'],
+    lastModified: '1 день назад',
+    content: `# GET /api/v1/billing/payments
+
+Возвращает список проведённых транзакций с пагинацией и фильтрами по статусу (\`SUCCESS\`, \`REFUNDED\`, \`PENDING\`).
+`,
+  },
+  {
+    id: 'changelog-240',
+    title: 'CHANGELOG v2.4.0 🔄',
+    type: 'changelog',
+    status: 'draft',
+    author: 'Docs-агент',
+    relatedNodes: ['billing-node', 'refund-endpoint', 'ui-billing-menu'],
+    tags: ['Релиз', 'v2.4'],
+    lastModified: '10 минут назад',
+    content: `# CHANGELOG v2.4.0 (В разработке)
+
+- 🆕 **Billing:** Запущен сервис возврата платежей через паттерн Saga.
+- 🆕 **UI:** Добавлен раздел «Billing» в боковое меню и кнопка быстрого возврата в заказах.
+- ⚡ **Инфра:** Масштабирование кластера до 5 подов под пиковые нагрузки.
+- 🔐 **Безопасность:** Интеграция с сервисом маскирования PII-данных карт.
+`,
+  },
+];
+
+export const MOCK_SCREENS: PortalScreen[] = [
+  {
+    id: 'screen-orders',
+    title: 'Заказы',
+    section: '🏢 Продажи',
+    diffSummary: {
+      added: ['Кнопка «Оформить возврат» в строке заказа', 'Колонка «Статус возврата»'],
+      removed: ['Старый пункт «Ручной запрос в финотдел»'],
+      modified: ['Индикатор статуса оплаты теперь поддерживает бейдж «Возврат в обработке»'],
+    },
+  },
+  {
+    id: 'screen-funnel',
+    title: 'Воронка',
+    section: '🏢 Продажи',
+  },
+  {
+    id: 'screen-clients',
+    title: 'Клиенты',
+    section: '🏢 Продажи',
+  },
+  {
+    id: 'screen-suppliers',
+    title: 'Поставщики',
+    section: '🏢 Закупки',
+  },
+  {
+    id: 'screen-contracts',
+    title: 'Договоры',
+    section: '🏢 Закупки',
+  },
+  {
+    id: 'screen-inventory',
+    title: 'Остатки',
+    section: '🏢 Склад',
+  },
+  {
+    id: 'screen-billing',
+    title: 'Billing (Возвраты) 🆕',
+    section: '🏢 Billing 🆕',
+    isNew: true,
+    diffSummary: {
+      added: [
+        'Новый раздел бокового меню «Billing 🆕»',
+        'Таблица активных транзакций возврата',
+        'Интерактивный статус Saga-оркестратора в реальном времени',
+      ],
+      removed: [],
+      modified: [],
+    },
+  },
+];
+
+export const MOCK_DATAFLOW_NODES: DataFlowNode[] = [
+  { id: 'user', name: 'Пользователь', type: 'user', status: 'active', layer: 'external', x: 80, y: 180 },
+  { id: 'web-ui', name: 'Web UI (SPA)', type: 'service', status: 'active', layer: 'services', x: 230, y: 180 },
+  { id: 'api-gateway', name: 'API Gateway', type: 'service', status: 'active', layer: 'services', x: 410, y: 180 },
+  { id: 'auth-svc', name: 'Auth (Keycloak)', type: 'service', status: 'active', layer: 'services', x: 410, y: 320, piiData: true },
+  { id: 'billing-svc', name: 'Billing Service', type: 'service', status: 'active', layer: 'services', x: 620, y: 120, isNew: true },
+  { id: 'orders-svc', name: 'Orders Service', type: 'service', status: 'active', layer: 'services', x: 620, y: 240 },
+  { id: 'kafka-queue', name: 'Kafka (payments.refund)', type: 'queue', status: 'active', layer: 'queues', x: 830, y: 120, isNew: true },
+  { id: 'notify-svc', name: 'Notify Service', type: 'service', status: 'active', layer: 'services', x: 1010, y: 120 },
+  { id: 'billing-db', name: 'PostgreSQL Billing', type: 'db', status: 'active', layer: 'db', x: 620, y: 10, piiData: true },
+  { id: 'bank-gateway', name: 'Банковский эквайер', type: 'external', status: 'warning', layer: 'external', x: 620, y: -90, piiData: true },
+];
+
+export const MOCK_DATAFLOW_STREAMS: DataFlowStream[] = [
+  {
+    id: 'stream-user-ui',
+    source: 'user',
+    target: 'web-ui',
+    protocol: 'HTTP',
+    state: 'active',
+    throughput: '340 req/s',
+    latency: '14 ms',
+    owner: 'Frontend Команда',
+    schemaSample: 'HTTPS / TLS 1.3 · Bearer Token',
+  },
+  {
+    id: 'stream-ui-gw',
+    source: 'web-ui',
+    target: 'api-gateway',
+    protocol: 'HTTP',
+    state: 'active',
+    throughput: '340 req/s',
+    latency: '18 ms',
+    owner: 'API Gateway Team',
+    schemaSample: 'JSON REST Payload with Authorization header',
+  },
+  {
+    id: 'stream-gw-auth',
+    source: 'api-gateway',
+    target: 'auth-svc',
+    protocol: 'gRPC',
+    state: 'active',
+    throughput: '310 req/s',
+    latency: '3 ms',
+    owner: 'SecOps Team',
+    piiSensitive: true,
+    schemaSample: 'ValidateTokenRequest { token: string, scope: ["billing.refund"] }',
+  },
+  {
+    id: 'stream-gw-billing',
+    source: 'api-gateway',
+    target: 'billing-svc',
+    protocol: 'gRPC',
+    state: 'modified',
+    isNew: true,
+    throughput: '42 req/s',
+    latency: '22 ms',
+    owner: 'Billing Агент & Команда',
+    schemaSample: 'POST /refund { order_id, amount, reason }',
+  },
+  {
+    id: 'stream-billing-db',
+    source: 'billing-svc',
+    target: 'billing-db',
+    protocol: 'SQL',
+    state: 'active',
+    throughput: '85 qps',
+    latency: '2.4 ms',
+    owner: 'DBA / Data Team',
+    piiSensitive: true,
+    schemaSample: 'UPDATE orders SET refund_status = \'LOCKED\' WHERE id = $1',
+  },
+  {
+    id: 'stream-billing-bank',
+    source: 'billing-svc',
+    target: 'bank-gateway',
+    protocol: 'HTTP',
+    state: 'problem',
+    throughput: '12 req/s',
+    latency: '380 ms',
+    owner: 'Интеграции Финтех',
+    issueDescription: 'Периодический таймаут шлюза эквайера (380мс > 250мс SLA). Срабатывает Saga-компенсация.',
+    piiSensitive: true,
+    schemaSample: 'POST /v2/acquirer/refund { pan_masked: "4276********1102", amount: 14200 }',
+  },
+  {
+    id: 'stream-billing-kafka',
+    source: 'billing-svc',
+    target: 'kafka-queue',
+    protocol: 'Kafka',
+    state: 'planned',
+    isNew: true,
+    throughput: '65 msg/s',
+    latency: '4.8 ms',
+    owner: 'Billing Агент',
+    schemaSample: 'Event { type: "PaymentRefunded", saga_id: "77492", order_id: "ORD-98421" }',
+  },
+  {
+    id: 'stream-kafka-notify',
+    source: 'kafka-queue',
+    target: 'notify-svc',
+    protocol: 'Kafka',
+    state: 'planned',
+    isNew: true,
+    throughput: '65 msg/s',
+    latency: '5.1 ms',
+    owner: 'Communications Team',
+    schemaSample: 'ConsumerGroup: notification-dispatchers -> SMS/Push gateway',
+  },
+];
+
+export const MOCK_HISTORY: HistoryEvent[] = [
+  {
+    id: 'hist-1',
+    time: '14:32',
+    type: 'commit',
+    title: '📦 Коммит feature/refund-endpoint',
+    author: 'Иван Петров',
+    agents: ['Billing', 'API', 'Docs'],
+    prNumber: '#4822',
+    servicesAffected: ['Billing', 'API Gateway', 'Kafka'],
+    docsAffected: ['ADR-042', 'POST /refund'],
+    details: 'Сгенерирована структура оркестратора саги, тесты компенсации и OpenAPI спецификация.',
+    canRollback: true,
+    status: 'merged',
+    relatedNodeId: 'billing-node',
+  },
+  {
+    id: 'hist-2',
+    time: '13:10',
+    type: 'deploy',
+    title: '🔄 Изменение Prod: replicas 3 → 5',
+    author: 'Иван Петров',
+    agents: ['Инфра → Prod'],
+    details: 'Увеличение пула реплик billing-service в связи с нагрузочным тестированием саги.',
+    canRollback: true,
+    status: 'resolved',
+    relatedNodeId: 'infra-k8s',
+  },
+  {
+    id: 'hist-3',
+    time: '12:45',
+    type: 'incident',
+    title: '⚠️ Инцидент INC-1247: Migrate-db timeout',
+    author: 'Автоматический мониторинг',
+    agents: ['DBA-агент', 'Инфра'],
+    details: 'Таймаут миграции схемы PostgreSQL из-за долгой блокировки таблицы транзакций. Закрыт за 27 мин.',
+    canRollback: false,
+    status: 'resolved',
+    relatedNodeId: 'billing-node',
+  },
+  {
+    id: 'hist-4',
+    time: '11:20',
+    type: 'decision',
+    title: '📄 ADR-042 утверждён',
+    author: 'Иван Петров',
+    agents: ['Архитектор'],
+    details: 'Архитектурное решение об использовании оркестрации Saga вместо 2PC утверждено.',
+    canRollback: false,
+    status: 'approved',
+    relatedNodeId: 'saga-pattern',
+  },
+  {
+    id: 'hist-5',
+    time: '10:05',
+    type: 'node_added',
+    title: '🆕 Добавлен узел Billing в дерево',
+    author: 'Иван Петров',
+    agents: ['Orchestrator'],
+    details: 'Новый микросервис Billing зарегистрирован в конфигурации портала и назначен агент разработки.',
+    canRollback: true,
+    status: 'approved',
+    relatedNodeId: 'billing-node',
+  },
+  {
+    id: 'hist-6',
+    time: '09:00',
+    type: 'start',
+    title: '▶️ Старт плана «refund»',
+    author: 'Иван Петров',
+    agents: ['All-Agents-Squad'],
+    details: 'Инициализирован рабочий поток реализации возврата платежей в спринте 42.',
+    canRollback: false,
+    status: 'active',
+    relatedNodeId: 'root',
+  },
+];
+
+export const MOCK_AGENT_CHAT: AgentChatMessage[] = [
+  {
+    id: 'msg-1',
+    sender: 'agent',
+    agentName: 'Billing-агент',
+    avatar: '🤖',
+    text: 'Приветствую! Анализирую требования к возврату платежей. Есть два пути реализации: паттерн Saga с оркестрацией или двухфазный коммит (2PC). Что выберем?',
+    timestamp: '14:20',
+    suggestedActions: ['Выбери Saga', 'Используй 2PC', 'Сравни задержки'],
+  },
+  {
+    id: 'msg-2',
+    sender: 'user',
+    text: 'Выбери Saga, так как в распределённой среде 2PC блокирует ресурсы.',
+    timestamp: '14:22',
+  },
+  {
+    id: 'msg-3',
+    sender: 'agent',
+    agentName: 'Billing-агент',
+    avatar: '🤖',
+    text: 'Принято! Генерирую файл saga.py с компенсирующими транзакциями, топики Kafka и черновик ADR-042. Текущий прогресс по ветке: 60%.',
+    timestamp: '14:25',
+    suggestedActions: ['Показать diff кода', 'Запустить юнит-тесты', 'Обновить ADR-042'],
+  },
+];
+
+export const INITIAL_MINDMAP_NODES = INITIAL_NODES;
+export const INITIAL_MINDMAP_LINKS = INITIAL_LINKS;
+export const INITIAL_CHAT_MESSAGES = MOCK_AGENT_CHAT;

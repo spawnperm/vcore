@@ -1,0 +1,8 @@
+{
+  "name": "МИРОВИЗОР",
+  "description": "Единый пульт реализации корпоративного портала с синхронизированными вкладками Плана, Документации, Вида портала, Потоков данных и Истории.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
