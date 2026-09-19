@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   MindmapNode,
   MindmapLink,
@@ -16,6 +16,10 @@ import {
   Cpu,
   RefreshCw,
   GitBranch,
+  Flame,
+  AlertTriangle,
+  ArrowRight,
+  Route,
 } from 'lucide-react';
 
 interface PlanTabProps {
@@ -37,6 +41,7 @@ export const PlanTab: React.FC<PlanTabProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [highlightCriticalPath, setHighlightCriticalPath] = useState<boolean>(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -63,6 +68,115 @@ export const PlanTab: React.FC<PlanTabProps> = ({
     setZoom(0.85);
     setPan({ x: 80, y: 120 });
   };
+
+  // Critical path and dependency analysis based on selectedNodeId
+  const {
+    blockerNodeIds,
+    criticalLinkIds,
+    dependentNodeIds,
+    selectedNode,
+  } = useMemo(() => {
+    const selNode = nodes.find((n) => n.id === selectedNodeId);
+    if (!selectedNodeId || !selNode) {
+      return {
+        blockerNodeIds: new Set<string>(),
+        criticalLinkIds: new Set<string>(),
+        dependentNodeIds: new Set<string>(),
+        selectedNode: null,
+      };
+    }
+
+    const blockers = new Set<string>();
+    const criticalLinks = new Set<string>();
+    const dependents = new Set<string>();
+
+    // 1. Ancestors / upstream blockers (nodes that this node depends on)
+    // Traverse upwards via parentId and incoming links (source -> target = selectedNodeId)
+    const queueUp = [selectedNodeId];
+    const visitedUp = new Set<string>([selectedNodeId]);
+
+    while (queueUp.length > 0) {
+      const curr = queueUp.shift()!;
+      const currNode = nodes.find((n) => n.id === curr);
+
+      // Links where target is curr
+      links.forEach((l) => {
+        if (l.target === curr) {
+          criticalLinks.add(l.id);
+          if (!visitedUp.has(l.source)) {
+            visitedUp.add(l.source);
+            blockers.add(l.source);
+            queueUp.push(l.source);
+          }
+        }
+      });
+
+      // Parent dependency
+      if (currNode?.parentId && !visitedUp.has(currNode.parentId)) {
+        visitedUp.add(currNode.parentId);
+        blockers.add(currNode.parentId);
+        queueUp.push(currNode.parentId);
+
+        // Find link representing parent -> child if exists
+        const parentLink = links.find((l) => l.source === currNode.parentId && l.target === curr);
+        if (parentLink) {
+          criticalLinks.add(parentLink.id);
+        }
+      }
+
+      // Explicit dependsOn array if present
+      if (currNode?.dependsOn) {
+        currNode.dependsOn.forEach((depId) => {
+          if (!visitedUp.has(depId)) {
+            visitedUp.add(depId);
+            blockers.add(depId);
+            queueUp.push(depId);
+          }
+        });
+      }
+    }
+
+    // 2. Descendants / downstream dependents (nodes blocked by this node)
+    const queueDown = [selectedNodeId];
+    const visitedDown = new Set<string>([selectedNodeId]);
+
+    while (queueDown.length > 0) {
+      const curr = queueDown.shift()!;
+
+      links.forEach((l) => {
+        if (l.source === curr) {
+          if (!visitedDown.has(l.target)) {
+            visitedDown.add(l.target);
+            dependents.add(l.target);
+            queueDown.push(l.target);
+          }
+        }
+      });
+
+      // Children by parentId
+      nodes.filter((n) => n.parentId === curr).forEach((child) => {
+        if (!visitedDown.has(child.id)) {
+          visitedDown.add(child.id);
+          dependents.add(child.id);
+          queueDown.push(child.id);
+        }
+      });
+    }
+
+    return {
+      blockerNodeIds: blockers,
+      criticalLinkIds: criticalLinks,
+      dependentNodeIds: dependents,
+      selectedNode: selNode,
+    };
+  }, [nodes, links, selectedNodeId]);
+
+  // Count uncompleted blocking tasks
+  const uncompletedBlockers = useMemo(() => {
+    return Array.from(blockerNodeIds)
+      .map((id) => nodes.find((n) => n.id === id))
+      .filter((n): n is MindmapNode => !!n && n.status !== 'completed' && n.id !== 'root');
+  }, [blockerNodeIds, nodes]);
 
   const filteredNodes = nodes.filter((n) => {
     if (filterCategory === 'all') return true;
@@ -166,6 +280,28 @@ export const PlanTab: React.FC<PlanTabProps> = ({
           </button>
         </div>
 
+        {/* Toggle Critical Path highlight */}
+        <div className="flex items-center border-r border-slate-800 pr-2 mr-1">
+          <button
+            id="toggle-critical-path-btn"
+            onClick={() => setHighlightCriticalPath((prev) => !prev)}
+            className={`px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+              highlightCriticalPath
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm shadow-amber-950'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+            title="Подсвечивать цепочку предшествующих блокирующих задач для выбранного узла"
+          >
+            <Flame className={`w-3.5 h-3.5 ${highlightCriticalPath ? 'text-amber-400 fill-amber-400/30' : 'text-slate-400'}`} />
+            <span>Критический путь</span>
+            {highlightCriticalPath && blockerNodeIds.size > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-bold">
+                {blockerNodeIds.size}
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Zoom controls */}
         <div className="flex items-center gap-1">
           <button
@@ -192,6 +328,54 @@ export const PlanTab: React.FC<PlanTabProps> = ({
         </div>
       </div>
 
+      {/* Critical Path Floating HUD Banner */}
+      {highlightCriticalPath && selectedNode && (
+        <div className="absolute top-18 left-4 z-20 max-w-md bg-slate-900/95 backdrop-blur-md rounded-xl border border-amber-500/40 p-3 shadow-2xl text-xs space-y-2 pointer-events-auto animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+            <div className="flex items-center gap-1.5 text-amber-300 font-semibold">
+              <Route className="w-4 h-4 text-amber-400" />
+              <span>Критический путь: <span className="text-white font-mono">{selectedNode.label}</span></span>
+            </div>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+              {selectedNode.progress}%
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3 text-[11px]">
+            <div className="flex items-center gap-1 text-slate-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+              <span>Предшественники: <strong>{blockerNodeIds.size}</strong></span>
+            </div>
+            {uncompletedBlockers.length > 0 ? (
+              <div className="flex items-center gap-1 text-rose-400 font-medium">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                <span>Блокируют ({uncompletedBlockers.length}):</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Все блокеры завершены</span>
+              </div>
+            )}
+          </div>
+
+          {uncompletedBlockers.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-0.5 max-h-20 overflow-y-auto">
+              {uncompletedBlockers.map((blocker) => (
+                <button
+                  key={blocker.id}
+                  onClick={() => onSelectNode(blocker.id)}
+                  className="px-2 py-0.5 rounded bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Нажмите, чтобы сфокусироваться на этой блокирующей задаче"
+                >
+                  <span>⚠️ {blocker.label}</span>
+                  <span className="font-mono text-[9px] opacity-80">({blocker.progress}%)</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Scalable & Pannable Mindmap Canvas */}
       <div
@@ -205,14 +389,28 @@ export const PlanTab: React.FC<PlanTabProps> = ({
           className="absolute inset-0 w-[2400px] h-[1600px] pointer-events-none overflow-visible"
         >
           <defs>
+            {/* Standard link active */}
             <linearGradient id="linkGradActive" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.8" />
               <stop offset="100%" stopColor="#6366f1" stopOpacity="0.9" />
             </linearGradient>
+
+            {/* Critical path glowing gradient */}
+            <linearGradient id="linkGradCritical" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#f59e0b" stopOpacity="1" />
+              <stop offset="50%" stopColor="#ef4444" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#f59e0b" stopOpacity="1" />
+            </linearGradient>
+
             <linearGradient id="linkGradNormal" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#334155" stopOpacity="0.7" />
               <stop offset="100%" stopColor="#475569" stopOpacity="0.7" />
             </linearGradient>
+
+            <filter id="glowCritical" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
           </defs>
 
           {links.map((link) => {
@@ -222,7 +420,8 @@ export const PlanTab: React.FC<PlanTabProps> = ({
 
             const isSourceSelected = sourceNode.id === selectedNodeId;
             const isTargetSelected = targetNode.id === selectedNodeId;
-            const isHighlighted = isSourceSelected || isTargetSelected || link.isPulsing;
+            const isCriticalLink = highlightCriticalPath && criticalLinkIds.has(link.id);
+            const isHighlighted = isSourceSelected || isTargetSelected || link.isPulsing || isCriticalLink;
 
             // Compute bezier curve
             const sx = sourceNode.x + 100;
@@ -233,22 +432,53 @@ export const PlanTab: React.FC<PlanTabProps> = ({
 
             const d = `M ${sx} ${sy} C ${mx} ${sy}, ${mx} ${ty}, ${tx} ${ty}`;
 
+            let strokeColor = 'url(#linkGradNormal)';
+            if (isCriticalLink) {
+              strokeColor = 'url(#linkGradCritical)';
+            } else if (isHighlighted) {
+              strokeColor = 'url(#linkGradActive)';
+            }
+
             return (
               <g key={link.id}>
-                {/* Background path */}
+                {/* Background glow for critical path */}
+                {isCriticalLink && (
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke="#f59e0b"
+                    strokeWidth={7}
+                    strokeOpacity={0.35}
+                    filter="url(#glowCritical)"
+                  />
+                )}
+
+                {/* Primary path */}
                 <path
                   d={d}
                   fill="none"
-                  stroke={isHighlighted ? 'url(#linkGradActive)' : 'url(#linkGradNormal)'}
-                  strokeWidth={isHighlighted ? 3 : 2}
-                  strokeDasharray={link.isPulsing ? '6,6' : undefined}
-                  className={link.isPulsing ? 'animate-dash' : ''}
+                  stroke={strokeColor}
+                  strokeWidth={isCriticalLink ? 3.5 : isHighlighted ? 3 : 2}
+                  strokeDasharray={isCriticalLink ? '8,4' : link.isPulsing ? '6,6' : undefined}
+                  className={isCriticalLink || link.isPulsing ? 'animate-dash' : ''}
                 />
 
                 {/* Animated pulse packet traveling along path */}
-                {link.isPulsing && (
-                  <circle r="4" fill="#38bdf8" className="filter drop-shadow-[0_0_6px_#38bdf8]">
-                    <animateMotion dur="2.4s" repeatCount="indefinite" path={d} />
+                {(isCriticalLink || link.isPulsing) && (
+                  <circle
+                    r={isCriticalLink ? '4.5' : '4'}
+                    fill={isCriticalLink ? '#fbbf24' : '#38bdf8'}
+                    className={`filter ${
+                      isCriticalLink
+                        ? 'drop-shadow-[0_0_8px_#f59e0b]'
+                        : 'drop-shadow-[0_0_6px_#38bdf8]'
+                    }`}
+                  >
+                    <animateMotion
+                      dur={isCriticalLink ? '1.6s' : '2.4s'}
+                      repeatCount="indefinite"
+                      path={d}
+                    />
                   </circle>
                 )}
 
@@ -258,8 +488,9 @@ export const PlanTab: React.FC<PlanTabProps> = ({
                     x={mx}
                     y={(sy + ty) / 2 - 8}
                     textAnchor="middle"
-                    fill="#94a3b8"
+                    fill={isCriticalLink ? '#fbbf24' : '#94a3b8'}
                     fontSize="10"
+                    fontWeight={isCriticalLink ? 'bold' : 'normal'}
                     fontFamily="monospace"
                     className="bg-slate-900"
                   >
@@ -276,6 +507,37 @@ export const PlanTab: React.FC<PlanTabProps> = ({
           {filteredNodes.map((node) => {
             const isSelected = node.id === selectedNodeId;
             const isRoot = node.id === 'root';
+            const isBlocker = highlightCriticalPath && blockerNodeIds.has(node.id);
+            const isDependent = highlightCriticalPath && dependentNodeIds.has(node.id);
+            const isUncompletedBlocker = isBlocker && node.status !== 'completed' && !isRoot;
+
+            // Determine styling classes based on critical path position
+            let ringAndBorder = '';
+            let glowBadge = null;
+
+            if (isSelected) {
+              ringAndBorder = 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-950 scale-105 shadow-cyan-500/20 bg-slate-900 border-cyan-400';
+            } else if (isUncompletedBlocker) {
+              ringAndBorder = 'ring-2 ring-rose-500 ring-offset-2 ring-offset-slate-950 scale-102 border-rose-500 bg-gradient-to-br from-rose-950/80 to-slate-900 shadow-rose-900/40';
+              glowBadge = (
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-600 text-white shadow-sm flex items-center gap-0.5 animate-pulse">
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  БЛОКИРУЕТ
+                </span>
+              );
+            } else if (isBlocker) {
+              ringAndBorder = 'ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-950 border-amber-400 bg-gradient-to-br from-amber-950/70 to-slate-900 shadow-amber-900/30';
+              glowBadge = (
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/90 text-slate-950 shadow-sm flex items-center gap-0.5">
+                  <Flame className="w-2.5 h-2.5" />
+                  ПРЕДШЕСТВЕННИК
+                </span>
+              );
+            } else if (isDependent) {
+              ringAndBorder = 'border-indigo-500/80 bg-gradient-to-br from-indigo-950/60 to-slate-900';
+            } else {
+              ringAndBorder = `bg-gradient-to-br ${getCategoryColor(node.category)} hover:border-slate-400 hover:scale-[1.02]`;
+            }
 
             return (
               <div
@@ -289,13 +551,7 @@ export const PlanTab: React.FC<PlanTabProps> = ({
                   top: `${node.y}px`,
                   width: isRoot ? '240px' : '220px',
                 }}
-                className={`absolute pointer-events-auto rounded-xl border p-3 cursor-pointer transition-all duration-200 shadow-lg ${
-                  isSelected
-                    ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-950 scale-105 shadow-cyan-500/20 bg-slate-900 border-cyan-400'
-                    : `bg-gradient-to-br ${getCategoryColor(
-                        node.category
-                      )} hover:border-slate-400 hover:scale-[1.02]`
-                }`}
+                className={`absolute pointer-events-auto rounded-xl border p-3 cursor-pointer transition-all duration-200 shadow-lg ${ringAndBorder}`}
               >
                 {/* Header: Category icon & Status */}
                 <div className="flex items-center justify-between gap-1 mb-1.5">
@@ -305,7 +561,8 @@ export const PlanTab: React.FC<PlanTabProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {node.isNew && (
+                    {glowBadge}
+                    {!glowBadge && node.isNew && (
                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 shadow-sm animate-pulse">
                         🆕 NEW
                       </span>
@@ -313,7 +570,7 @@ export const PlanTab: React.FC<PlanTabProps> = ({
                     {node.status === 'completed' ? (
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                     ) : (
-                      <span className="text-[10px] font-mono text-cyan-300 font-bold">
+                      <span className={`text-[10px] font-mono font-bold ${isUncompletedBlocker ? 'text-rose-400' : 'text-cyan-300'}`}>
                         {node.progress}%
                       </span>
                     )}
@@ -331,6 +588,10 @@ export const PlanTab: React.FC<PlanTabProps> = ({
                     className={`h-full rounded-full transition-all duration-500 ${
                       node.status === 'completed'
                         ? 'bg-emerald-400'
+                        : isUncompletedBlocker
+                        ? 'bg-gradient-to-r from-rose-500 to-amber-500'
+                        : isBlocker
+                        ? 'bg-amber-400'
                         : 'bg-gradient-to-r from-cyan-500 to-indigo-500'
                     }`}
                     style={{ width: `${node.progress}%` }}
@@ -355,3 +616,4 @@ export const PlanTab: React.FC<PlanTabProps> = ({
     </div>
   );
 };
+
