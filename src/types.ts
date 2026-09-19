@@ -18,6 +18,8 @@ export interface MindmapNode {
   relatedDocId?: string;
   relatedScreenId?: string;
   relatedFlowId?: string;
+  executionOrder?: number;
+  dependsOn?: string[];
 }
 
 export interface MindmapLink {

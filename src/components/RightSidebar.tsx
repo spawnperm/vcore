@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Clock,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   Cpu,
   Layers,
@@ -20,15 +21,23 @@ import {
   Volume2,
   Radio,
   SlidersHorizontal,
+  User,
+  ExternalLink,
+  ShieldCheck,
+  LogOut,
 } from 'lucide-react';
-import { MindmapNode, AgentChatMessage, DshPortalAction } from '../types';
+import { MindmapNode, MindmapLink, AgentChatMessage, DshPortalAction } from '../types';
 import { LiveVoiceControl } from './LiveVoiceControl';
 import { DshResultCard } from './DshResultCard';
+import { InteractiveDependencyTree } from './InteractiveDependencyTree';
 
 interface RightSidebarProps {
   selectedNodeId: string;
   onSelectNode: (nodeId: string) => void;
   nodes: MindmapNode[];
+  links?: MindmapLink[];
+  onReorganizePlan?: (newNodes: MindmapNode[], newLinks: MindmapLink[], changeDescription?: string) => void;
+  onResetPlan?: () => void;
   chatMessages: AgentChatMessage[];
   onSendMessage: (text: string, isVoice?: boolean) => void;
   onApplyDshAction?: (action: DshPortalAction) => void;
@@ -40,12 +49,17 @@ interface RightSidebarProps {
   isVoiceListening?: boolean;
   onToggleVoice?: () => void;
   voiceTranscript?: string;
+  currentOrg?: string;
+  onOrgChange?: (org: string) => void;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
   selectedNodeId,
   onSelectNode,
   nodes,
+  links = [],
+  onReorganizePlan,
+  onResetPlan,
   chatMessages,
   onSendMessage,
   onApplyDshAction,
@@ -57,15 +71,12 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   isVoiceListening = false,
   onToggleVoice,
   voiceTranscript = '',
+  currentOrg = 'ООО Ромашка',
+  onOrgChange,
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'tree' | 'assistant' | 'dsh'>('all');
-  const [filterQuery, setFilterQuery] = useState('');
   const [inputCommand, setInputCommand] = useState('');
-  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
-
-  const toggleCategory = (cat: string) => {
-    setCollapsedCategories((prev) => ({ ...prev, [cat]: !prev[cat] }));
-  };
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || nodes[0];
 
@@ -75,158 +86,263 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
     setInputCommand('');
   };
 
-  // Categories for tree view
-  const categories = [
-    {
-      id: 'stack',
-      name: 'Стек сервисов',
-      icon: <Layers className="w-3.5 h-3.5 text-cyan-400" />,
-      items: nodes.filter((n) => n.category === 'stack'),
-    },
-    {
-      id: 'infra',
-      name: 'Инфраструктура',
-      icon: <Server className="w-3.5 h-3.5 text-amber-400" />,
-      items: nodes.filter((n) => n.category === 'infra'),
-    },
-    {
-      id: 'ui',
-      name: 'Интерфейс (UI)',
-      icon: <Cpu className="w-3.5 h-3.5 text-indigo-400" />,
-      items: nodes.filter((n) => n.category === 'ui'),
-    },
-    {
-      id: 'security',
-      name: 'Безопасность & CI/CD',
-      icon: <Shield className="w-3.5 h-3.5 text-emerald-400" />,
-      items: nodes.filter((n) => n.category === 'security'),
-    },
-  ];
-
   return (
-    <aside
-      id="right-sidebar"
-      className="w-80 lg:w-[410px] bg-slate-900 border-l border-slate-800 flex flex-col h-full text-slate-200 select-none shrink-0 overflow-hidden"
-    >
-      {/* Top Sidebar Navigation Tabs */}
-      <div className="p-2 border-b border-slate-800 bg-slate-900/90 shrink-0">
-        <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg text-xs font-medium border border-slate-800">
+    <div className="relative flex shrink-0 h-full">
+      {/* Collapse/Expand Toggle Button: stays at the exact same distance from the menu whether expanded or collapsed */}
+      <button
+        id="toggle-right-sidebar-btn"
+        type="button"
+        onClick={onToggleCollapse}
+        className={`absolute top-3.5 -left-7 z-40 w-7 h-8 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 border border-r-0 border-slate-700 rounded-l-lg shadow-xl flex items-center justify-center transition-all cursor-pointer group ${
+          isCollapsed ? 'ring-1 ring-cyan-500/50 text-cyan-400' : ''
+        }`}
+        title={isCollapsed ? 'Развернуть боковое меню' : 'Свернуть боковое меню'}
+      >
+        {isCollapsed ? (
+          <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5 text-cyan-400" />
+        ) : (
+          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+        )}
+      </button>
+
+      <aside
+        id="right-sidebar"
+        className={`bg-slate-900 border-l border-slate-800 flex flex-col h-full text-slate-200 select-none shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${
+          isCollapsed ? 'w-14' : 'w-80 lg:w-[410px]'
+        }`}
+      >
+        {/* User Profile Header (Top of the right sidebar, full-height alignment) */}
+        <div className={`h-14 border-b border-slate-800 bg-slate-900/95 flex items-center shrink-0 relative transition-all ${
+          isCollapsed ? 'justify-center px-1' : 'justify-between px-3 gap-2'
+        }`}>
           <button
-            onClick={() => setActiveTab('all')}
-            className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'all'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+            id="sidebar-user-profile-button"
+            type="button"
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className={`min-w-0 flex items-center rounded-lg hover:bg-slate-800/80 border border-transparent hover:border-slate-700/60 transition-all text-left group cursor-pointer ${
+              isCollapsed ? 'p-1.5 justify-center' : 'flex-1 gap-2.5 p-1'
             }`}
+            title="Иван Петров (Архитектор / Lead) — Нажмите для профиля"
           >
-            <Terminal className="w-3.5 h-3.5" />
-            <span>Пульт DSH</span>
+            <div className="relative shrink-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 to-orange-500 flex items-center justify-center text-xs font-bold text-white shadow-md">
+                ИП
+              </div>
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
+            </div>
+
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-slate-100 truncate group-hover:text-cyan-300 transition-colors">
+                    Иван Петров
+                  </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                      userMenuOpen ? 'rotate-180 text-cyan-400' : ''
+                    }`}
+                  />
+                </div>
+                <div className="text-[10px] text-slate-400 flex items-center gap-1.5 truncate leading-tight">
+                  <span className="truncate">Архитектор / Lead</span>
+                  <span className="text-slate-600">•</span>
+                  <span className="text-emerald-400 font-mono text-[9px]">online</span>
+                </div>
+              </div>
+            )}
           </button>
-          <button
-            onClick={() => setActiveTab('assistant')}
-            className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'assistant'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
-          >
-            <Bot className="w-3.5 h-3.5" />
-            <span>Чат & Live</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('tree')}
-            className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'tree'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
-          >
-            <FolderTree className="w-3.5 h-3.5" />
-            <span>Дерево</span>
-          </button>
+
+          {/* User Profile Dropdown */}
+          {userMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setUserMenuOpen(false)}
+              />
+              <div className={`absolute top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-2 z-50 text-xs ${
+                isCollapsed ? 'right-0 w-64' : 'left-2 right-2'
+              }`}>
+                <div className="px-3 py-2 border-b border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-slate-100">Иван Петров</p>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800/60">
+                      PRO
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                    ivan.petrov@romashka.corp
+                  </p>
+                  <div className="mt-2 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Полные права оркестрации
+                  </div>
+                </div>
+
+                <div className="py-1">
+                  <button
+                    type="button"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Профиль инженера</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">Lead Dev</span>
+                  </button>
+
+                  <a
+                    href="https://github.com/spawnperm/vcore"
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Репозиторий Git (spawnperm/vcore)</span>
+                    </div>
+                    <span className="text-[10px] text-cyan-400 font-mono">main</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      setActiveTab('assistant');
+                      if (isCollapsed) onToggleCollapse?.();
+                    }}
+                    className="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Шлюз deepseek-harness</span>
+                    </div>
+                    <span className="text-[10px] text-emerald-400 font-mono">live-3.8</span>
+                  </button>
+                </div>
+
+                <div className="pt-1 mt-1 border-t border-slate-800/80 px-3 py-1 text-[10px] text-slate-500">
+                  Организация: <span className="text-slate-300 font-medium">{currentOrg || 'ООО Ромашка'}</span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-      </div>
+
+        {/* Top Sidebar Navigation Tabs (Expanded mode: 3 grid buttons; Collapsed rail mode: vertical icons) */}
+        <div className="p-2 border-b border-slate-800 bg-slate-900/90 shrink-0">
+          {isCollapsed ? (
+            <div className="flex flex-col items-center gap-2">
+              <button
+                onClick={() => {
+                  setActiveTab('all');
+                  onToggleCollapse?.();
+                }}
+                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                  activeTab === 'all'
+                    ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+                title="Пульт DSH"
+              >
+                <Terminal className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('assistant');
+                  onToggleCollapse?.();
+                }}
+                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                  activeTab === 'assistant'
+                    ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+                title="Чат & Live"
+              >
+                <Bot className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('tree');
+                  onToggleCollapse?.();
+                }}
+                className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                  activeTab === 'tree'
+                    ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                }`}
+                title="Дерево архитектуры"
+              >
+                <FolderTree className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg text-xs font-medium border border-slate-800">
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'all'
+                    ? 'bg-cyan-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                <span>Пульт DSH</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('assistant')}
+                className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'assistant'
+                    ? 'bg-cyan-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <Bot className="w-3.5 h-3.5" />
+                <span>Чат & Live</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('tree')}
+                className={`py-1.5 px-2 rounded-md flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'tree'
+                    ? 'bg-cyan-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <FolderTree className="w-3.5 h-3.5" />
+                <span>Дерево</span>
+              </button>
+            </div>
+          )}
+        </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 overflow-y-auto divide-y divide-slate-800">
-        {/* SECTION 1: Tree View */}
-        {(activeTab === 'tree' || activeTab === 'all') && (
-          <div className={`${activeTab === 'all' ? 'max-h-[220px]' : 'flex-1'} flex flex-col p-3`}>
-            {/* Filter */}
-            <div className="relative mb-2">
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={filterQuery}
-                onChange={(e) => setFilterQuery(e.target.value)}
-                placeholder="Фильтр узлов конфигурации..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-md pl-8 pr-2.5 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
+        {/* SECTION 1: Interactive Dependency Tree (Full height in 'tree' tab) */}
+        {activeTab === 'tree' && (
+          <div className="flex-1 flex flex-col min-h-0">
+            <InteractiveDependencyTree
+              nodes={nodes}
+              links={links}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={onSelectNode}
+              onReorganizePlan={onReorganizePlan || (() => {})}
+              onResetToDefault={onResetPlan}
+            />
+          </div>
+        )}
 
-            {/* Tree Items List */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar text-xs">
-              {categories.map((cat) => {
-                const filteredItems = cat.items.filter((item) =>
-                  item.label.toLowerCase().includes(filterQuery.toLowerCase())
-                );
-                if (filteredItems.length === 0 && filterQuery) return null;
-                const isCollapsed = collapsedCategories[cat.id];
-
-                return (
-                  <div key={cat.id} className="rounded-lg border border-slate-800/80 bg-slate-950/40 overflow-hidden">
-                    <button
-                      onClick={() => toggleCategory(cat.id)}
-                      className="w-full px-2.5 py-1.5 flex items-center justify-between text-slate-300 hover:bg-slate-800/50 transition-colors font-semibold"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        {cat.icon}
-                        <span>{cat.name}</span>
-                      </div>
-                      {isCollapsed ? (
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-                      )}
-                    </button>
-
-                    {!isCollapsed && (
-                      <div className="px-1.5 py-1 space-y-0.5 border-t border-slate-800/50">
-                        {filteredItems.map((item) => {
-                          const isSelected = item.id === selectedNodeId;
-                          return (
-                            <button
-                              key={item.id}
-                              onClick={() => onSelectNode(item.id)}
-                              className={`w-full text-left px-2 py-1 rounded flex items-center justify-between transition-all ${
-                                isSelected
-                                  ? 'bg-cyan-950/90 text-cyan-300 font-semibold border border-cyan-800/80 shadow-sm'
-                                  : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5 truncate">
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-cyan-400" />
-                                <span className="truncate">{item.label}</span>
-                                {item.isNew && (
-                                  <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800">
-                                    NEW
-                                  </span>
-                                )}
-                              </div>
-                              {isSelected && (
-                                <span className="text-cyan-400 font-mono text-[11px] shrink-0">
-                                  ←
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+        {/* SECTION 1 (Compact version in 'all' tab) */}
+        {activeTab === 'all' && (
+          <div className="h-[270px] flex flex-col min-h-0 shrink-0">
+            <InteractiveDependencyTree
+              nodes={nodes}
+              links={links}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={onSelectNode}
+              onReorganizePlan={onReorganizePlan || (() => {})}
+              onResetToDefault={onResetPlan}
+            />
           </div>
         )}
 
@@ -435,5 +551,6 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         <p className="text-slate-400 line-clamp-1 mt-0.5">{selectedNode.description}</p>
       </div>
     </aside>
+  </div>
   );
 };

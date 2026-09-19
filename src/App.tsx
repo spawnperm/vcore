@@ -71,7 +71,7 @@ export default function App() {
 
   // Data state
   const [nodes, setNodes] = useState<MindmapNode[]>(INITIAL_MINDMAP_NODES);
-  const [links] = useState<MindmapLink[]>(INITIAL_MINDMAP_LINKS);
+  const [links, setLinks] = useState<MindmapLink[]>(INITIAL_MINDMAP_LINKS);
   const [docs, setDocs] = useState<DocItem[]>(MOCK_DOCS);
   const [screens] = useState<PortalScreen[]>(MOCK_SCREENS);
   const [dataFlowNodes] = useState<DataFlowNode[]>(MOCK_DATAFLOW_NODES);
@@ -122,6 +122,60 @@ export default function App() {
     setNodes((prev) =>
       prev.map((n) => (n.id === nodeId ? { ...n, progress } : n))
     );
+  };
+
+  // Handler for reorganizing the plan via drag-and-drop in the dependency tree
+  const handleReorganizePlan = (
+    newNodes: MindmapNode[],
+    newLinks: MindmapLink[],
+    changeDescription?: string
+  ) => {
+    setNodes(newNodes);
+    setLinks(newLinks);
+
+    if (changeDescription) {
+      setActiveAgentAction(changeDescription);
+      // Append decision event to history
+      setHistoryEvents((prev) => [
+        {
+          id: `event-${Date.now()}`,
+          time: 'Только что',
+          type: 'decision',
+          title: 'Реорганизация логики плана выполнения',
+          author: 'Иван Петров (Архитектор)',
+          agents: ['Tech Lead', 'deepseek-harness'],
+          details: changeDescription,
+          status: 'approved',
+        },
+        ...prev,
+      ]);
+
+      // Add system message to agent chat
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          sender: 'system',
+          text: `⚡ План синхронизирован: ${changeDescription}. Граф зависимостей и очередность шагов обновлены.`,
+          timestamp: 'Только что',
+        },
+      ]);
+    }
+  };
+
+  const handleResetPlan = () => {
+    setNodes(INITIAL_MINDMAP_NODES);
+    setLinks(INITIAL_MINDMAP_LINKS);
+    setActiveAgentAction('Структура плана сброшена к исходной');
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: `msg-${Date.now()}`,
+        sender: 'system',
+        text: '🔄 Структура плана и граф зависимостей сброшены к исходному состоянию.',
+        timestamp: 'Только что',
+      },
+    ]);
   };
 
   // Interactive Execution Loop Simulation (Play button advances plan)
@@ -430,128 +484,128 @@ export default function App() {
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || nodes[0];
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased select-none">
-      {/* 1. Top Global Header (Brand, Tenant switcher, Search, Alerts, Ivan Petrov, Web Speech) */}
-      <Header
-        currentOrg={selectedOrg}
-        onOrgChange={setSelectedOrg}
-        onOpenSearch={() => setIsSearchModalOpen(true)}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        isVoiceListening={isVoiceListening}
-        onToggleVoice={toggleVoiceInput}
-      />
+    <div className="flex h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased select-none">
+      {/* Left/Center Column: Header, Tab Switcher, Workspace, PlayerBar */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        {/* 1. Top Global Header (Brand, Tenant switcher, Search, Alerts) */}
+        <Header
+          currentOrg={selectedOrg}
+          onOrgChange={setSelectedOrg}
+          onOpenSearch={() => setIsSearchModalOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isVoiceListening={isVoiceListening}
+          onToggleVoice={toggleVoiceInput}
+        />
 
-      {/* 2. Main Synchronized Tab Switcher Bar matching user ASCII diagram */}
-      <div className="h-12 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between gap-3 shrink-0 z-20">
-        {/* Left: 5 Modes / Tabs */}
-        <nav className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
-          {/* Tab 1: План */}
-          <button
-            id="tab-btn-plan"
-            onClick={() => setActiveTab('plan')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
-              activeTab === 'plan'
-                ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Brain className="w-3.5 h-3.5" />
-            <span>🧠 План</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-950/70 text-cyan-300 border border-cyan-800/60">
-              60%
-            </span>
-          </button>
+        {/* 2. Main Synchronized Tab Switcher Bar matching user ASCII diagram */}
+        <div className="h-12 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between gap-3 shrink-0 z-20">
+          {/* Left: 5 Modes / Tabs */}
+          <nav className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
+            {/* Tab 1: План */}
+            <button
+              id="tab-btn-plan"
+              onClick={() => setActiveTab('plan')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
+                activeTab === 'plan'
+                  ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Brain className="w-3.5 h-3.5" />
+              <span>🧠 План</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-950/70 text-cyan-300 border border-cyan-800/60">
+                60%
+              </span>
+            </button>
 
-          {/* Tab 2: Доки */}
-          <button
-            id="tab-btn-docs"
-            onClick={() => setActiveTab('docs')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
-              activeTab === 'docs'
-                ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>📄 Доки</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-amber-950 text-amber-300 border border-amber-800">
-              🔄 draft
-            </span>
-          </button>
+            {/* Tab 2: Доки */}
+            <button
+              id="tab-btn-docs"
+              onClick={() => setActiveTab('docs')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
+                activeTab === 'docs'
+                  ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>📄 Доки</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-amber-950 text-amber-300 border border-amber-800">
+                🔄 draft
+              </span>
+            </button>
 
-          {/* Tab 3: Портал */}
-          <button
-            id="tab-btn-portal"
-            onClick={() => setActiveTab('portal')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
-              activeTab === 'portal'
-                ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            <span>🖼️ Портал</span>
-            <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500 text-slate-950">
-              🆕
-            </span>
-          </button>
+            {/* Tab 3: Портал */}
+            <button
+              id="tab-btn-portal"
+              onClick={() => setActiveTab('portal')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
+                activeTab === 'portal'
+                  ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span>🖼️ Портал</span>
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-500 text-slate-950">
+                🆕
+              </span>
+            </button>
 
-          {/* Tab 4: Потоки */}
-          <button
-            id="tab-btn-dataflows"
-            onClick={() => setActiveTab('dataflows')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
-              activeTab === 'dataflows' || activeTab === 'flows'
-                ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span>🔄 Потоки</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-rose-950 text-rose-300 border border-rose-800 animate-pulse">
-              🔴 1 issue
-            </span>
-          </button>
+            {/* Tab 4: Потоки */}
+            <button
+              id="tab-btn-dataflows"
+              onClick={() => setActiveTab('dataflows')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
+                activeTab === 'dataflows' || activeTab === 'flows'
+                  ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>🔄 Потоки</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-rose-950 text-rose-300 border border-rose-800 animate-pulse">
+                🔴 1 issue
+              </span>
+            </button>
 
-          {/* Tab 5: История */}
-          <button
-            id="tab-btn-history"
-            onClick={() => setActiveTab('history')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
-              activeTab === 'history'
-                ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <History className="w-3.5 h-3.5" />
-            <span>📜 История</span>
-            <span className="text-[10px] font-mono text-slate-400">
-              {historyEvents.length}
-            </span>
-          </button>
-        </nav>
+            {/* Tab 5: История */}
+            <button
+              id="tab-btn-history"
+              onClick={() => setActiveTab('history')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all shrink-0 ${
+                activeTab === 'history'
+                  ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-900/40'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>📜 История</span>
+              <span className="text-[10px] font-mono text-slate-400">
+                {historyEvents.length}
+              </span>
+            </button>
+          </nav>
 
-        {/* Right Info: Synchronized Active Node pill */}
-        <div className="hidden lg:flex items-center gap-2 text-xs">
-          <span className="text-slate-400">Активный контекст синхронизации:</span>
-          <div
-            onClick={() => {
-              setActiveTab('plan');
-            }}
-            className="cursor-pointer px-2.5 py-1 rounded-md bg-cyan-950/80 text-cyan-300 border border-cyan-800 font-mono font-medium flex items-center gap-1.5 hover:bg-cyan-900 transition-colors"
-            title="Кликните для перехода в миндмап к этому узлу"
-          >
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span>🧩 {selectedNode.label}</span>
-            <span className="text-[10px] text-cyan-400">({selectedNode.progress}%)</span>
+          {/* Right Info: Synchronized Active Node pill */}
+          <div className="hidden lg:flex items-center gap-2 text-xs">
+            <span className="text-slate-400">Активный контекст синхронизации:</span>
+            <div
+              onClick={() => {
+                setActiveTab('plan');
+              }}
+              className="cursor-pointer px-2.5 py-1 rounded-md bg-cyan-950/80 text-cyan-300 border border-cyan-800 font-mono font-medium flex items-center gap-1.5 hover:bg-cyan-900 transition-colors"
+              title="Кликните для перехода в миндмап к этому узлу"
+            >
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span>🧩 {selectedNode.label}</span>
+              <span className="text-[10px] text-cyan-400">({selectedNode.progress}%)</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 3. Main Dynamic Content + Synchronized Right Sidebar */}
-      <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {/* Dynamic Tab Workspace */}
+        {/* 3. Main Dynamic Content Workspace */}
         <main className="flex-1 flex flex-col min-w-0 bg-slate-950 overflow-hidden relative">
           {activeTab === 'plan' && (
             <PlanTab
@@ -616,24 +670,52 @@ export default function App() {
           )}
         </main>
 
-        {/* Right Sidebar: Unified Tree View + AI Agent Chat + Properties */}
-        <RightSidebar
-          selectedNodeId={selectedNodeId}
-          onSelectNode={handleSelectNode}
-          nodes={nodes}
-          chatMessages={chatMessages}
-          onSendMessage={handleSendMessage}
-          onApplyDshAction={handleApplyDshAction}
-          isDshProcessing={isDshProcessing}
-          activeAgentName={selectedNode.agent || 'deepseek-harness'}
-          activeAgentRole={selectedNode.agentRole || 'Генерация Saga-оркестратора'}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          isVoiceListening={isVoiceListening}
-          onToggleVoice={toggleVoiceInput}
-          voiceTranscript={voiceFullTranscript}
+        {/* 4. Bottom Player Bar (Unified Execution & State Control) */}
+        <PlayerBar
+          isPlaying={isPlaying}
+          onTogglePlay={() => setIsPlaying(!isPlaying)}
+          onStop={() => {
+            setIsPlaying(false);
+            setCurrentStep(1);
+            setProgressPercent(20);
+          }}
+          onStepForward={handleStepForward}
+          onStepBackward={handleStepBackward}
+          progress={progressPercent}
+          currentAction={activeAgentAction}
+          activeBranch={currentBranch}
+          agentsCount={3}
+          onOpenCommitModal={() => setIsCommitModalOpen(true)}
+          onOpenBranchModal={() => setIsPrModalOpen(true)}
+          onOpenAgentsModal={() => {
+            // Switch to assistant in sidebar
+            setIsSidebarCollapsed(false);
+          }}
         />
       </div>
+
+      {/* Right Sidebar: Full-Height from top of screen to bottom of screen */}
+      <RightSidebar
+        selectedNodeId={selectedNodeId}
+        onSelectNode={handleSelectNode}
+        nodes={nodes}
+        links={links}
+        onReorganizePlan={handleReorganizePlan}
+        onResetPlan={handleResetPlan}
+        chatMessages={chatMessages}
+        onSendMessage={handleSendMessage}
+        onApplyDshAction={handleApplyDshAction}
+        isDshProcessing={isDshProcessing}
+        activeAgentName={selectedNode.agent || 'deepseek-harness'}
+        activeAgentRole={selectedNode.agentRole || 'Генерация Saga-оркестратора'}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        isVoiceListening={isVoiceListening}
+        onToggleVoice={toggleVoiceInput}
+        voiceTranscript={voiceFullTranscript}
+        currentOrg={selectedOrg}
+        onOrgChange={setSelectedOrg}
+      />
 
       {/* Floating Web Speech Recognition Overlay Bar */}
       {isVoiceListening && (
@@ -687,29 +769,6 @@ export default function App() {
           <span>⚠️ {voiceError}</span>
         </div>
       )}
-
-      {/* 4. Bottom Player Bar (Unified Execution & State Control) */}
-      <PlayerBar
-        isPlaying={isPlaying}
-        onTogglePlay={() => setIsPlaying(!isPlaying)}
-        onStop={() => {
-          setIsPlaying(false);
-          setCurrentStep(1);
-          setProgressPercent(20);
-        }}
-        onStepForward={handleStepForward}
-        onStepBackward={handleStepBackward}
-        progress={progressPercent}
-        currentAction={activeAgentAction}
-        activeBranch={currentBranch}
-        agentsCount={3}
-        onOpenCommitModal={() => setIsCommitModalOpen(true)}
-        onOpenBranchModal={() => setIsPrModalOpen(true)}
-        onOpenAgentsModal={() => {
-          // Switch to assistant in sidebar
-          setIsSidebarCollapsed(false);
-        }}
-      />
 
       {/* Modals & Dialogs */}
       <CommitModal
