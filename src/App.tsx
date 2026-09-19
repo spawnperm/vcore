@@ -23,6 +23,7 @@ import {
   INITIAL_CHAT_MESSAGES,
 } from './mockData';
 import { executeDshCommand, streamAudioOrTextToGeminiFlash } from './services/dshService';
+import { useVoiceInput } from './hooks/useVoiceInput';
 
 import { Header } from './components/Header';
 import { PlayerBar } from './components/PlayerBar';
@@ -316,6 +317,23 @@ export default function App() {
     }
   };
 
+  // Web Speech API Hook: captures user voice, transcribes to text,
+  // and passes it directly to handleSendMessage in App.tsx
+  const {
+    isListening: isVoiceListening,
+    transcript: voiceTranscript,
+    fullTranscript: voiceFullTranscript,
+    startListening: startVoiceInput,
+    stopListening: stopVoiceInput,
+    toggleListening: toggleVoiceInput,
+    error: voiceError,
+    isSupported: isWebSpeechSupported,
+  } = useVoiceInput({
+    onSendMessage: handleSendMessage,
+    lang: 'ru-RU',
+    autoSendOnStop: true,
+  });
+
   // Handler for applying DSH generated actions to the live Portal
   const handleApplyDshAction = (action: DshPortalAction) => {
     setActiveAgentAction(`DSH: Применение «${action.summary}»...`);
@@ -413,13 +431,15 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased select-none">
-      {/* 1. Top Global Header (Brand, Tenant switcher, Search, Alerts, Ivan Petrov) */}
+      {/* 1. Top Global Header (Brand, Tenant switcher, Search, Alerts, Ivan Petrov, Web Speech) */}
       <Header
         currentOrg={selectedOrg}
         onOrgChange={setSelectedOrg}
         onOpenSearch={() => setIsSearchModalOpen(true)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        isVoiceListening={isVoiceListening}
+        onToggleVoice={toggleVoiceInput}
       />
 
       {/* 2. Main Synchronized Tab Switcher Bar matching user ASCII diagram */}
@@ -609,8 +629,64 @@ export default function App() {
           activeAgentRole={selectedNode.agentRole || 'Генерация Saga-оркестратора'}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          isVoiceListening={isVoiceListening}
+          onToggleVoice={toggleVoiceInput}
+          voiceTranscript={voiceFullTranscript}
         />
       </div>
+
+      {/* Floating Web Speech Recognition Overlay Bar */}
+      {isVoiceListening && (
+        <div
+          id="web-speech-active-overlay"
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-rose-500/80 shadow-2xl shadow-rose-950/60 rounded-xl px-4 py-2.5 flex items-center gap-3 backdrop-blur-md animate-fade-in"
+        >
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+            </span>
+            <span className="text-xs font-semibold text-rose-300 tracking-wide uppercase">
+              Web Speech API:
+            </span>
+          </div>
+
+          <div className="max-w-md truncate text-xs font-mono text-slate-100">
+            {voiceFullTranscript ? (
+              <span className="text-cyan-300 font-medium">«{voiceFullTranscript}»</span>
+            ) : (
+              <span className="text-slate-400 italic">Говорите голосовую команду в микрофон...</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
+            <button
+              onClick={() => stopVoiceInput(true)}
+              className="text-xs px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors shadow-sm"
+              title="Отправить распознанный текст в handleSendMessage"
+            >
+              Отправить
+            </button>
+            <button
+              onClick={() => stopVoiceInput(false)}
+              className="text-xs px-2 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+              title="Отменить голосовой ввод"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Web Speech Error Toast */}
+      {voiceError && (
+        <div
+          id="web-speech-error-toast"
+          className="fixed top-16 right-4 z-50 bg-rose-950/90 border border-rose-700 text-rose-200 text-xs px-3 py-2 rounded-lg shadow-lg flex items-center gap-2"
+        >
+          <span>⚠️ {voiceError}</span>
+        </div>
+      )}
 
       {/* 4. Bottom Player Bar (Unified Execution & State Control) */}
       <PlayerBar

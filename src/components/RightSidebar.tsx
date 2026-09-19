@@ -37,6 +37,9 @@ interface RightSidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   isDshProcessing?: boolean;
+  isVoiceListening?: boolean;
+  onToggleVoice?: () => void;
+  voiceTranscript?: string;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -48,7 +51,12 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onApplyDshAction,
   activeAgentName,
   activeAgentRole,
+  isCollapsed = false,
+  onToggleCollapse,
   isDshProcessing = false,
+  isVoiceListening = false,
+  onToggleVoice,
+  voiceTranscript = '',
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'tree' | 'assistant' | 'dsh'>('all');
   const [filterQuery, setFilterQuery] = useState('');
@@ -343,6 +351,26 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               </button>
             </div>
 
+            {/* Live voice speech status if listening */}
+            {isVoiceListening && (
+              <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-rose-950/40 border border-rose-800/60 text-[11px] flex items-center justify-between gap-2 text-rose-300 animate-pulse">
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />
+                  <span className="truncate font-mono">
+                    {voiceTranscript ? `«${voiceTranscript}»` : 'Слушаю ваш голос (Web Speech API)...'}
+                  </span>
+                </div>
+                {onToggleVoice && (
+                  <button
+                    onClick={onToggleVoice}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700 shrink-0"
+                  >
+                    Отправить
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Input & Manual Send */}
             <div className="mt-2 pt-2 border-t border-slate-800">
               <div className="relative flex items-center">
@@ -351,17 +379,44 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   value={inputCommand}
                   onChange={(e) => setInputCommand(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Команда для DSH (или используйте микрофон выше)..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-3 pr-10 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
+                  placeholder={
+                    isVoiceListening
+                      ? 'Идёт запись голоса...'
+                      : 'Команда для DSH (или нажмите микрофон)...'
+                  }
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-3 pr-16 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30"
                 />
-                <button
-                  onClick={handleSend}
-                  disabled={!inputCommand.trim() || isDshProcessing}
-                  className="absolute right-1.5 p-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-40 disabled:hover:bg-cyan-600 transition-colors"
-                  title="Отправить в DSH"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
+
+                <div className="absolute right-1.5 flex items-center gap-1">
+                  {onToggleVoice && (
+                    <button
+                      id="sidebar-web-speech-mic-btn"
+                      type="button"
+                      onClick={onToggleVoice}
+                      className={`p-1.5 rounded-md transition-colors ${
+                        isVoiceListening
+                          ? 'bg-rose-600 text-white animate-pulse'
+                          : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-800'
+                      }`}
+                      title={
+                        isVoiceListening
+                          ? 'Остановить запись и отправить команду в DSH'
+                          : 'Запустить голосовой ввод через Web Speech API'
+                      }
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleSend}
+                    disabled={!inputCommand.trim() || isDshProcessing}
+                    className="p-1.5 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-40 disabled:hover:bg-cyan-600 transition-colors"
+                    title="Отправить в DSH"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

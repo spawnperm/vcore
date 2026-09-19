@@ -11,6 +11,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Sparkles,
+  Mic,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -19,6 +20,8 @@ interface HeaderProps {
   onOpenSearch: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  isVoiceListening?: boolean;
+  onToggleVoice?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -27,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch,
   searchQuery,
   onSearchChange,
+  isVoiceListening = false,
+  onToggleVoice,
 }) => {
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -128,9 +133,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Center: Search input & Quick navigation */}
-      <div className="flex-1 max-w-md mx-4 hidden md:block">
-        <div className="relative">
+      {/* Center: Search input & Quick navigation + Web Speech Voice Input */}
+      <div className="flex-1 max-w-md mx-4 hidden md:flex items-center gap-2">
+        <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
@@ -144,6 +149,27 @@ export const Header: React.FC<HeaderProps> = ({
             ⌘K
           </kbd>
         </div>
+
+        {onToggleVoice && (
+          <button
+            id="header-web-speech-mic-btn"
+            type="button"
+            onClick={onToggleVoice}
+            className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition-all ${
+              isVoiceListening
+                ? 'bg-rose-500/20 border-rose-500 text-rose-300 ring-2 ring-rose-500/30 animate-pulse'
+                : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/50'
+            }`}
+            title={
+              isVoiceListening
+                ? 'Идёт распознавание речи... Нажмите для отправки'
+                : 'Голосовой ввод команды (Web Speech API)'
+            }
+          >
+            <Mic className={`w-4 h-4 ${isVoiceListening ? 'text-rose-400' : ''}`} />
+            {isVoiceListening && <span className="text-[11px] font-mono font-bold pr-1">REC</span>}
+          </button>
+        )}
       </div>
 
       {/* Right: Notifications & User profile */}
