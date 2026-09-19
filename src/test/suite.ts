@@ -10,6 +10,7 @@ import { orderRepository } from '../modules/portal/infrastructure/repositories/o
 import { billingRepository } from '../modules/portal/infrastructure/repositories/billingRepository.ts';
 import { procurementRepository } from '../modules/portal/infrastructure/repositories/procurementRepository.ts';
 import { salesRepository } from '../modules/portal/infrastructure/repositories/salesRepository.ts';
+import { runPlanTabGraphTestSuite } from './planTabGraph.test.ts';
 
 let passed = 0;
 let failed = 0;
@@ -101,6 +102,10 @@ async function runTests() {
 
   const clients = salesRepository.getClients();
   assert(clients.length > 0, 'SalesRepository returns clients');
+
+  // Test 4: PlanTab Dependency Graph & Critical Path Engine
+  console.log('\n');
+  runPlanTabGraphTestSuite();
 
   console.log('\n' + '='.repeat(50));
   console.log(`📊 Test Results: ${passed} passed, ${failed} failed`);
