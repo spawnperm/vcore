@@ -192,29 +192,6 @@ export const PlanTab: React.FC<PlanTabProps> = ({
         </div>
       </div>
 
-      {/* Legend & Active Agent Status Widget */}
-      <div className="absolute bottom-4 left-4 z-20 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-800 shadow-xl text-xs flex flex-col gap-2 max-w-xs pointer-events-auto">
-        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-          <span>Синхронизация миндмапа</span>
-          <span className="flex items-center gap-1 text-emerald-400 font-mono font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            LIVE
-          </span>
-        </div>
-        <p className="text-[11px] text-slate-300 leading-snug">
-          Выбор узла подсвечивает связанные документы, экраны интерфейса и потоки данных во всех вкладках.
-        </p>
-        <div className="flex items-center gap-3 text-[11px] text-slate-400 pt-1 border-t border-slate-800">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-sm shadow-cyan-500/50 animate-pulse" />
-            <span>Активный агент</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span>Готово (100%)</span>
-          </div>
-        </div>
-      </div>
 
       {/* Scalable & Pannable Mindmap Canvas */}
       <div
