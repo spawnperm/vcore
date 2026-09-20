@@ -57,7 +57,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Быстрый переход: Billing, Saga, ADR-042, Заказы, Kafka..."
+            placeholder="Быстрый переход: Billing, Saga, ADR-042, Заказы, NATS..."
             className="w-full bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
           />
           <button onClick={onClose} className="text-slate-400 hover:text-white">

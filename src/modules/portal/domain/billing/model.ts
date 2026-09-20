@@ -5,7 +5,6 @@ export type SagaStepId =
   | 'ACQUIRER_CALL'
   | 'LEDGER_ADJUSTMENT'
   | 'JETSTREAM_EVENT'
-  | 'KAFKA_EVENT'
   | 'CLIENT_NOTIFICATION';
 
 export type SagaStepStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'COMPENSATED';
@@ -97,7 +96,6 @@ export interface RefundSagaCompletedPayload {
   orderId: string;
   amount: number;
   jetstreamSubject: string;
-  kafkaTopic?: string;
 }
 
 export class RefundSagaCompletedEvent implements DomainEvent<RefundSagaCompletedPayload> {

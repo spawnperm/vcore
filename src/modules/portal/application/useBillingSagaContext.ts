@@ -124,7 +124,6 @@ export function useBillingSagaContext() {
                   orderId,
                   amount,
                   jetstreamSubject: 'orders.v1.refund',
-                  kafkaTopic: 'orders.v1.refund',
                 })
               );
             }

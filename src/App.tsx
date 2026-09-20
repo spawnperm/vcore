@@ -442,7 +442,7 @@ export default function App() {
       author: 'deepseek-harness',
       agents: ['DSH Engine', 'Gemini 3.8 Flash', 'Live API'],
       prNumber: '#4824',
-      servicesAffected: ['Portal Frontend', 'Kafka Gateway', 'Saga Orchestrator'],
+      servicesAffected: ['Portal Frontend', 'NATS JetStream Gateway', 'Saga Orchestrator'],
       docsAffected: ['ADR-042', 'OpenAPI'],
       details: 'Патч кода автоматически сгенерирован и внедрён в структуру портала.',
       relatedNodeId: selectedNodeId,

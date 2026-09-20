@@ -454,7 +454,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 Выбери Saga
               </button>
               <button
-                onClick={() => onSendMessage('Сгенерируй компенсирующую транзакцию для Kafka', false)}
+                onClick={() => onSendMessage('Сгенерируй компенсирующую транзакцию для NATS JetStream', false)}
                 className="text-[10px] px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyan-300 hover:border-cyan-600 transition-colors"
               >
                 + Компенсация

@@ -103,7 +103,7 @@ export const LiveVoiceControl: React.FC<LiveVoiceControlProps> = ({
     'Добавь двухфакторную верификацию в форму возврата на экране заказов',
     'Включи Circuit Breaker для банковского шлюза со SLA 380 ms',
     'Синтезируй Saga-компенсатор и обнови ADR-042',
-    'Сгенерируй тестовый раннер dsh-runner для Kafka',
+    'Сгенерируй тестовый раннер dsh-runner для NATS JetStream',
   ];
 
   return (

@@ -58,7 +58,7 @@ export const CommitModal: React.FC<CommitModalProps> = ({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-slate-300 font-semibold">Сообщение коммита:</label>
               <button
-                onClick={() => setMessage('feat(billing): orchestrate refund transaction via Kafka and Notify service')}
+                onClick={() => setMessage('feat(billing): orchestrate refund transaction via NATS JetStream and Notify service')}
                 className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
               >
                 <Sparkles className="w-3 h-3" />

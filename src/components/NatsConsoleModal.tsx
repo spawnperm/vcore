@@ -330,7 +330,7 @@ export const NatsConsoleModal: React.FC<NatsConsoleModalProps> = ({
                     Потребление памяти
                   </div>
                   <div className="text-xl font-bold text-purple-300 mt-1 font-mono">~122 MB</div>
-                  <div className="text-[10px] text-emerald-400 mt-1">vs 4096 MB в Kafka</div>
+                  <div className="text-[10px] text-emerald-400 mt-1">vs &gt;4000 MB в тяжеловесных брокерах</div>
                 </div>
               </div>
 
@@ -403,7 +403,7 @@ export const NatsConsoleModal: React.FC<NatsConsoleModalProps> = ({
                 </div>
               </div>
 
-              {/* Kafka vs NATS comparison summary */}
+              {/* NATS JetStream architecture advantages */}
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4">
                 <h4 className="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider">
                   Преимущества NATS JetStream в архитектуре портала (ADR-043)
@@ -412,7 +412,7 @@ export const NatsConsoleModal: React.FC<NatsConsoleModalProps> = ({
                   <div className="p-2.5 bg-slate-950/60 rounded-lg border border-slate-800">
                     <span className="text-cyan-400 font-semibold block mb-1">⚡ Сверхнизкая задержка</span>
                     <p className="text-slate-400 text-[11px] leading-relaxed">
-                      P99 задержка составляет 1.6 мс против 12 мс у Kafka, обеспечивая бесшовное
+                      P99 задержка составляет 1.6 мс (SLA &lt; 5 мс), обеспечивая моментальное
                       выполнение саги возвратов.
                     </p>
                   </div>

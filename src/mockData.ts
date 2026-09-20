@@ -166,18 +166,6 @@ export const INITIAL_NODES: MindmapNode[] = [
     description: 'Масштабирование подов до 5 реплик в проде',
   },
   {
-    id: 'infra-kafka',
-    parentId: 'infra-root',
-    label: '📦 Архив Kafka (Выведен из эксплуатации)',
-    category: 'infra',
-    status: 'completed',
-    progress: 100,
-    x: -30,
-    y: 160,
-    description: 'Брокер Kafka выведен из эксплуатации. Все потоки и события саги переведены на NATS 2.10 JetStream (ADR-043)',
-    relatedDocId: 'adr-040',
-  },
-  {
     id: 'infra-nats',
     parentId: 'infra-root',
     label: '⚡ NATS JetStream (3-Node Raft)',
@@ -230,7 +218,6 @@ export const INITIAL_LINKS: MindmapLink[] = [
   { id: 'l10', source: 'ui-root', target: 'ui-orders' },
   { id: 'l11', source: 'ui-root', target: 'ui-billing-menu', isPulsing: true, isNew: true },
   { id: 'l12', source: 'infra-root', target: 'infra-k8s' },
-  { id: 'l13', source: 'infra-root', target: 'infra-kafka' },
   { id: 'l14', source: 'sec-root', target: 'sec-pii', isPulsing: true },
   // Cross-domain links
   { id: 'l15', source: 'saga-pattern', target: 'infra-nats', label: 'события саги (JetStream)', isPulsing: true },
@@ -318,30 +305,6 @@ export const MOCK_DOCS: DocItem[] = [
 `,
   },
   {
-    id: 'adr-040',
-    title: 'ADR-040: [Архив] Шина событий Kafka (Выведена в пользу NATS JetStream)',
-    type: 'adr',
-    status: 'deprecated',
-    author: 'Инфра-агент',
-    relatedNodes: ['infra-kafka', 'infra-nats'],
-    tags: ['Kafka', 'NATS', 'JetStream', 'Архив'],
-    lastModified: 'Только что (миграция)',
-    version: '2.0-deprecated',
-    content: `# ADR-040: [Архив] Шина событий Kafka
-
-**Статус:** ⚠️ УСТАРЕЛ / ВЫВЕДЕН ИЗ ЭКСПЛУАТАЦИИ (Superseded by ADR-043)  
-**Автор:** Инфра-агент  
-**Замещающий документ:** [ADR-043: Миграция шины событий на NATS JetStream](#adr-043)  
-
-## История решения
-Исторически был развёрнут кластер Kafka из 3 брокеров. В связи с высокими задержками (4–12 мс) и повышенным потреблением оперативной памяти кластер Kafka был полностью замещён легковесным ядром **NATS 2.10 JetStream** (ADR-043).
-Все топики мигрированы в subjects JetStream:
-- \`orders.created\` → subject \`orders.v1.created\`
-- \`payments.charged\` → subject \`payments.v1.charged\`
-- \`payments.refund\` → subject \`orders.v1.refund\`
-`,
-  },
-  {
     id: 'api-refund',
     title: 'POST /refund — Оформление возврата средств',
     type: 'api',
@@ -417,26 +380,26 @@ Authorization: Bearer eyJhbGciOi...
 
 ---
 
-## 1. Контекст и проблема
-Исторически в портале Мировизор для асинхронного взаимодействия использовался единый кластер Apache Kafka.  
-Однако при росте числа микросервисов и внедрении распределённых транзакций (Saga Orchestration) выявились ограничения:
-1. **Задержка P99:** В Kafka задержка передачи сообщений и коммита оффсетов составляет 4–12 мс, что критично для синхронных шагов саги (SLA < 5 мс).
-2. **Накладные расходы ресурсов:** Минимальный кластер Kafka + ZooKeeper / KRaft требует от 4-8 ГБ RAM на узел.
-3. **Отсутствие встроенного Request-Reply:** Реализация RPC поверх топиков Kafka требует временных топиков ответов и сложной логики корреляции.
-4. **Хранилище состояний:** Сервисам требовалось отдельное Redis-хранилище для конфигураций и ключей фиче-флагов.
+## 1. Контекст и целевая архитектура
+Для асинхронного взаимодействия микросервисов корпоративного портала Мировизор развёрнута современная высокопроизводительная шина событий и распределённый Event Mesh.
+При росте числа микросервисов и внедрении распределённых транзакций (Saga Orchestration) ключевыми требованиями стали:
+1. **Задержка P99:** Требуется сверхнизкая задержка передачи сообщений и коммита (SLA < 5 мс, цель < 2 мс).
+2. **Низкие накладные расходы ресурсов:** Минимальное потребление памяти и быстрый cold-start подов в Kubernetes.
+3. **Встроенный Request-Reply:** Нативная поддержка легковесного RPC без поднятия отдельных временных очередей ответов.
+4. **Хранилище состояний:** Возможность ведения распределённого Key-Value хранилища состояний саг и фиче-флагов без добавления сторонней СУБД.
 
 ---
 
-## 2. Сравнительный анализ (Kafka vs NATS JetStream)
+## 2. Сравнительный анализ архитектурных преимуществ NATS JetStream
 
-| Критерий | Apache Kafka | NATS 2.10 + JetStream | Выигрыш NATS |
+| Критерий | Legacy брокеры сообщений | NATS 2.10 + JetStream | Архитектурный выигрыш NATS |
 | :--- | :--- | :--- | :--- |
-| **Задержка P50 / P99** | 2.5 мс / 12 мс | **0.8 мс / 1.6 мс** | **В 7 раз быстрее** |
+| **Задержка P50 / P99** | 2.5 мс / 12 мс | **0.8 мс / 1.6 мс** | **В 7 раз быстрее (SLA соблюдается)** |
 | **Потребление RAM** | ~4096 MB на брокер | **~42 MB на брокер** | **В 90 раз компактнее** |
-| **Request-Reply RPC** | Эмуляция через топики | **Нативная поддержка (\_INBOX)** | Встроено |
-| **Key-Value Store** | Внешний Redis | **Встроенный JetStream KV** | Без сторонней СУБД |
-| **Иерархия Subject** | Плоские топики | **Токены (\`orders.v1.*\` / \`billing.>\`)** | Гибкая маршрутизация |
-| **Raft консенсус** | KRaft (сложная настройка) | **Встроенный легкий Raft** | 3-узловой отказоустойчивый кворум |
+| **Request-Reply RPC** | Эмуляция через очереди | **Нативная поддержка (\_INBOX)** | Встроено из коробки |
+| **Key-Value Store** | Внешняя база данных | **Встроенный JetStream KV** | Без дополнительной инфраструктуры |
+| **Иерархия Subject** | Плоские топики | **Токены (\`orders.v1.*\` / \`billing.>\`)** | Гибкая маршрутизация доменных событий |
+| **Raft консенсус** | Сложный внешний кворум | **Встроенный легковесный Raft** | 3-узловой отказоустойчивый кворум |
 
 ---
 
@@ -697,36 +660,6 @@ export const MOCK_DATAFLOW_NODES: DataFlowNode[] = [
       networkOutMb: 24.5,
       healthScore: 98,
       uptime: '99.98%',
-    },
-  },
-  {
-    id: 'kafka-queue',
-    name: 'Kafka (Decommissioned / Выведен)',
-    type: 'queue',
-    status: 'idle',
-    layer: 'queues',
-    x: 830,
-    y: 120,
-    isNew: false,
-    technology: 'Apache Kafka (архивный брокер, 100% трафика в NATS JetStream)',
-    version: 'v3.6.1-archived',
-    metrics: {
-      rps: 0,
-      peakRps: 0,
-      cpuPercent: 1,
-      memoryMb: 120,
-      memoryLimitMb: 4096,
-      p50LatencyMs: 0,
-      p95LatencyMs: 0,
-      p99LatencyMs: 0,
-      errorRate: 0.0,
-      replicas: { current: 0, max: 3 },
-      queueLag: 0,
-      activeConnections: 0,
-      networkInMb: 0.0,
-      networkOutMb: 0.0,
-      healthScore: 100,
-      uptime: 'Archived',
     },
   },
   {
