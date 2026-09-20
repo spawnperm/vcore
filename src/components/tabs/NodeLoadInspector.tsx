@@ -29,6 +29,7 @@ interface NodeLoadInspectorProps {
   onClose?: () => void;
   isSpikeActive?: boolean;
   onToggleSpike?: () => void;
+  onOpenNatsConsole?: () => void;
 }
 
 export const NodeLoadInspector: React.FC<NodeLoadInspectorProps> = ({
@@ -39,6 +40,7 @@ export const NodeLoadInspector: React.FC<NodeLoadInspectorProps> = ({
   onClose,
   isSpikeActive = false,
   onToggleSpike,
+  onOpenNatsConsole,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'load' | 'streams' | 'specs'>('load');
 
@@ -184,6 +186,24 @@ export const NodeLoadInspector: React.FC<NodeLoadInspectorProps> = ({
             ⚙️ Инфо
           </button>
         </div>
+
+        {/* NATS JetStream Quick Trigger */}
+        {(node.id === 'nats-cluster' || node.technology?.includes('NATS')) && onOpenNatsConsole && (
+          <button
+            id="nats-open-from-inspector-btn"
+            type="button"
+            onClick={onOpenNatsConsole}
+            className="w-full mt-2.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-950/80 to-teal-950/80 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 text-xs font-semibold flex items-center justify-between shadow-sm transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
+              <span>NATS 2.10 JetStream Console</span>
+            </div>
+            <span className="text-[10px] text-cyan-400 font-mono flex items-center gap-1">
+              Открыть <ArrowUpRight className="w-3 h-3" />
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Content Area */}

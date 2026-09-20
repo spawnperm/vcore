@@ -35,6 +35,7 @@ interface DataFlowsTabProps {
   onSelectStream?: (streamId: string) => void;
   selectedNodeId: string;
   onSelectNode: (nodeId: string) => void;
+  onOpenNatsConsole?: () => void;
 }
 
 export const DataFlowsTab: React.FC<DataFlowsTabProps> = ({
@@ -44,6 +45,7 @@ export const DataFlowsTab: React.FC<DataFlowsTabProps> = ({
   onSelectStream,
   selectedNodeId,
   onSelectNode,
+  onOpenNatsConsole,
 }) => {
   // Layer visibility toggles
   const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>({
@@ -738,6 +740,7 @@ export const DataFlowsTab: React.FC<DataFlowsTabProps> = ({
           }}
           isSpikeActive={isSpikeActive}
           onToggleSpike={() => setIsSpikeActive(!isSpikeActive)}
+          onOpenNatsConsole={onOpenNatsConsole}
           onClose={() => {
             if (activeInspectionStream) {
               setInspectorMode('stream');

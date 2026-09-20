@@ -105,7 +105,7 @@ export interface DataFlowStream {
   id: string;
   source: string;
   target: string;
-  protocol: 'HTTP' | 'gRPC' | 'Kafka' | 'SQL';
+  protocol: 'HTTP' | 'gRPC' | 'Kafka' | 'SQL' | 'NATS' | 'JetStream';
   state: 'active' | 'modified' | 'problem' | 'planned';
   isNew?: boolean;
   throughput: string;

@@ -177,6 +177,20 @@ export const INITIAL_NODES: MindmapNode[] = [
     description: 'Брокер сообщений для асинхронного взаимодействия саги',
     relatedDocId: 'adr-040',
   },
+  {
+    id: 'infra-nats',
+    parentId: 'infra-root',
+    label: '⚡ NATS JetStream (3-Node Raft)',
+    category: 'infra',
+    status: 'completed',
+    progress: 100,
+    isNew: true,
+    x: -30,
+    y: 240,
+    description: 'Event Mesh сверхнизкой задержки (P99 1.6мс), Pub/Sub, Key-Value и очереди JetStream',
+    relatedDocId: 'adr-043',
+    relatedFlowId: 'nats-cluster',
+  },
   // Security & Docs
   {
     id: 'sec-root',
@@ -221,6 +235,8 @@ export const INITIAL_LINKS: MindmapLink[] = [
   // Cross-domain links
   { id: 'l15', source: 'saga-pattern', target: 'infra-kafka', label: 'события саги', isPulsing: true },
   { id: 'l16', source: 'billing-node', target: 'ui-billing-menu', label: 'UI интеграция' },
+  { id: 'l17', source: 'infra-root', target: 'infra-nats', isPulsing: true, isNew: true },
+  { id: 'l18', source: 'billing-node', target: 'infra-nats', label: 'NATS RPC & JetStream', isPulsing: true, isNew: true },
 ];
 
 export const MOCK_DOCS: DocItem[] = [
@@ -378,6 +394,64 @@ Authorization: Bearer eyJhbGciOi...
     content: `# GET /api/v1/billing/payments
 
 Возвращает список проведённых транзакций с пагинацией и фильтрами по статусу (\`SUCCESS\`, \`REFUNDED\`, \`PENDING\`).
+`,
+  },
+  {
+    id: 'adr-043',
+    title: 'ADR-043: Внедрение NATS JetStream как основы Event Mesh',
+    type: 'adr',
+    status: 'approved',
+    author: 'Архитектурный комитет & Инфра-агент',
+    relatedNodes: ['infra-nats', 'billing-node', 'saga-pattern'],
+    tags: ['Архитектура', 'NATS', 'JetStream', 'Event Mesh', 'Низкая задержка'],
+    lastModified: 'только что',
+    version: '1.0-approved',
+    content: `# ADR-043: Внедрение NATS JetStream как основы Event Mesh и очереди сверхнизкой задержки
+
+**Статус:** ✅ Утверждено (Approved)  
+**Автор:** Архитектурный комитет, Инфра-агент  
+**Связано:** ⚡ NATS JetStream, 🧩 Billing, ⚙️ Saga, 🏗️ Инфраструктура  
+**Утверждающие:** Иван Петров (Tech Lead), SecOps Lead, SRE Lead  
+
+---
+
+## 1. Контекст и проблема
+Исторически в портале Мировизор для асинхронного взаимодействия использовался единый кластер Apache Kafka.  
+Однако при росте числа микросервисов и внедрении распределённых транзакций (Saga Orchestration) выявились ограничения:
+1. **Задержка P99:** В Kafka задержка передачи сообщений и коммита оффсетов составляет 4–12 мс, что критично для синхронных шагов саги (SLA < 5 мс).
+2. **Накладные расходы ресурсов:** Минимальный кластер Kafka + ZooKeeper / KRaft требует от 4-8 ГБ RAM на узел.
+3. **Отсутствие встроенного Request-Reply:** Реализация RPC поверх топиков Kafka требует временных топиков ответов и сложной логики корреляции.
+4. **Хранилище состояний:** Сервисам требовалось отдельное Redis-хранилище для конфигураций и ключей фиче-флагов.
+
+---
+
+## 2. Сравнительный анализ (Kafka vs NATS JetStream)
+
+| Критерий | Apache Kafka | NATS 2.10 + JetStream | Выигрыш NATS |
+| :--- | :--- | :--- | :--- |
+| **Задержка P50 / P99** | 2.5 мс / 12 мс | **0.8 мс / 1.6 мс** | **В 7 раз быстрее** |
+| **Потребление RAM** | ~4096 MB на брокер | **~42 MB на брокер** | **В 90 раз компактнее** |
+| **Request-Reply RPC** | Эмуляция через топики | **Нативная поддержка (\_INBOX)** | Встроено |
+| **Key-Value Store** | Внешний Redis | **Встроенный JetStream KV** | Без сторонней СУБД |
+| **Иерархия Subject** | Плоские топики | **Токены (\`orders.v1.*\` / \`billing.>\`)** | Гибкая маршрутизация |
+| **Raft консенсус** | KRaft (сложная настройка) | **Встроенный легкий Raft** | 3-узловой отказоустойчивый кворум |
+
+---
+
+## 3. Решение
+Принято решение развернуть **NATS 2.10 в режиме 3-узлового JetStream кластера**:
+- **Event Mesh:** Иерархическая маршрутизация доменных событий (\`portal.events.>\`, \`orders.>\`, \`billing.>\`).
+- **JetStream Streams:** Персистентные потоки с репликацией R=3 для событий заказов, шагов саги и журнала аудита.
+- **NATS Key-Value:** Использование встроенного хранилища \`saga-state\` и \`system-config\` вместо отдельного Redis.
+- **Request-Reply:** Высокоскоростной межсервисный RPC для валидации токенов и лимитов возвратов.
+
+---
+
+## 4. Таксономия субъектов (Subject Hierarchy)
+- \`orders.v1.<event>\`: Жизненный цикл заказа (\`orders.v1.created\`, \`orders.v1.cancelled\`).
+- \`billing.saga.<sagaId>.<action>\`: Команды и компенсации саги возврата.
+- \`audit.<service>.<event>\`: Журнал событий безопасности и PII.
+- \`$KV.<bucket>.<key>\`: Реактивные обновления ключ-значение.
 `,
   },
   {
@@ -654,6 +728,36 @@ export const MOCK_DATAFLOW_NODES: DataFlowNode[] = [
     },
   },
   {
+    id: 'nats-cluster',
+    name: 'NATS JetStream Cluster',
+    type: 'queue',
+    status: 'active',
+    layer: 'queues',
+    x: 830,
+    y: 240,
+    isNew: true,
+    technology: 'NATS 2.10 / JetStream 3-Node Raft',
+    version: 'v2.10.12',
+    metrics: {
+      rps: 12450,
+      peakRps: 28000,
+      cpuPercent: 18,
+      memoryMb: 122,
+      memoryLimitMb: 1024,
+      p50LatencyMs: 0.8,
+      p95LatencyMs: 1.6,
+      p99LatencyMs: 2.8,
+      errorRate: 0.0,
+      replicas: { current: 3, max: 3 },
+      queueLag: 0,
+      activeConnections: 840,
+      networkInMb: 121.8,
+      networkOutMb: 365.4,
+      healthScore: 100,
+      uptime: '99.999%',
+    },
+  },
+  {
     id: 'notify-svc',
     name: 'Notify Service',
     type: 'service',
@@ -836,6 +940,43 @@ export const MOCK_DATAFLOW_STREAMS: DataFlowStream[] = [
     latency: '5.1 ms',
     owner: 'Communications Team',
     schemaSample: 'ConsumerGroup: notification-dispatchers -> SMS/Push gateway',
+  },
+  {
+    id: 'stream-orders-nats',
+    source: 'orders-svc',
+    target: 'nats-cluster',
+    protocol: 'NATS',
+    state: 'active',
+    isNew: true,
+    throughput: '210 msg/s',
+    latency: '0.9 ms',
+    owner: 'Orders Team & Event Mesh',
+    schemaSample: 'Subject: orders.v1.created { order_id, client_id, amount: 32000 }',
+  },
+  {
+    id: 'stream-nats-billing',
+    source: 'nats-cluster',
+    target: 'billing-svc',
+    protocol: 'JetStream',
+    state: 'active',
+    isNew: true,
+    throughput: '142 msg/s',
+    latency: '1.1 ms',
+    owner: 'Billing Saga Orchestrator',
+    schemaSample: 'Subject: billing.saga.refund.execute { saga_id: "77492", amount: 14200 }',
+  },
+  {
+    id: 'stream-billing-nats-audit',
+    source: 'billing-svc',
+    target: 'nats-cluster',
+    protocol: 'NATS',
+    state: 'active',
+    isNew: true,
+    throughput: '85 msg/s',
+    latency: '0.7 ms',
+    owner: 'SecOps Audit Stream',
+    piiSensitive: true,
+    schemaSample: 'Subject: audit.billing.refunds { action: "INIT_REFUND", pan_masked: "4276***1102" }',
   },
 ];
 

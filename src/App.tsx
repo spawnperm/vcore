@@ -37,6 +37,7 @@ import { HistoryTab } from './components/tabs/HistoryTab';
 import { CommitModal } from './components/CommitModal';
 import { SearchModal } from './components/SearchModal';
 import { PrModal } from './components/PrModal';
+import { NatsConsoleModal } from './components/NatsConsoleModal';
 import {
   Brain,
   FileText,
@@ -107,6 +108,7 @@ export default function App() {
   const [isCommitModalOpen, setIsCommitModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isPrModalOpen, setIsPrModalOpen] = useState(false);
+  const [isNatsModalOpen, setIsNatsModalOpen] = useState(false);
 
   // Keyboard shortcut for ⌘K search
   useEffect(() => {
@@ -551,6 +553,7 @@ export default function App() {
           isSavingStorage={isSavingStorage}
           lastStorageSaved={lastStorageSaved}
           onResetStorage={handleResetAllStorage}
+          onOpenNats={() => setIsNatsModalOpen(true)}
         />
 
         {/* 2. Main Synchronized Tab Switcher Bar matching user ASCII diagram */}
@@ -709,6 +712,7 @@ export default function App() {
               onSelectStream={setSelectedStreamId}
               selectedNodeId={selectedNodeId}
               onSelectNode={handleSelectNode}
+              onOpenNatsConsole={() => setIsNatsModalOpen(true)}
             />
           )}
 
@@ -858,6 +862,11 @@ export default function App() {
         isOpen={isPrModalOpen}
         onClose={() => setIsPrModalOpen(false)}
         prNumber="#4822"
+      />
+
+      <NatsConsoleModal
+        isOpen={isNatsModalOpen}
+        onClose={() => setIsNatsModalOpen(false)}
       />
     </div>
   );

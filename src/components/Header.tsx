@@ -10,6 +10,7 @@ import {
   Sparkles,
   Database,
   RefreshCw,
+  Zap,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -23,6 +24,7 @@ interface HeaderProps {
   isSavingStorage?: boolean;
   lastStorageSaved?: Date | null;
   onResetStorage?: () => void;
+  onOpenNats?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   isSavingStorage = false,
   lastStorageSaved,
   onResetStorage,
+  onOpenNats,
 }) => {
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -206,6 +209,21 @@ export const Header: React.FC<HeaderProps> = ({
             <span>live-3.8</span>
           </div>
         </div>
+
+        {/* NATS JetStream Status & Trigger */}
+        {onOpenNats && (
+          <button
+            id="nats-console-trigger-btn"
+            type="button"
+            onClick={onOpenNats}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-950/40 border border-cyan-500/30 hover:border-cyan-400 hover:bg-cyan-900/40 text-[11px] font-mono text-cyan-300 shadow-sm transition-all cursor-pointer group"
+            title="Открыть NATS JetStream Console (ADR-043)"
+          >
+            <Zap className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <span className="font-semibold">NATS 2.10</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          </button>
+        )}
 
         {/* Notifications */}
         <div className="relative">

@@ -12,6 +12,7 @@ import { procurementRepository } from '../modules/portal/infrastructure/reposito
 import { salesRepository } from '../modules/portal/infrastructure/repositories/salesRepository.ts';
 import { runPlanTabGraphTestSuite } from './planTabGraph.test.ts';
 import { runStorageTestSuite } from './storage.test.ts';
+import { runNatsTestSuite } from './nats.test.ts';
 
 let passed = 0;
 let failed = 0;
@@ -111,6 +112,12 @@ async function runTests() {
   // Test 5: LocalStorage Synchronization & State Recovery Engine
   console.log('\n');
   runStorageTestSuite();
+
+  // Test 6: NATS 2.10 JetStream & Event Mesh Engine
+  console.log('\n');
+  const natsRes = await runNatsTestSuite();
+  passed += natsRes.passed;
+  failed += natsRes.failed;
 
   console.log('\n' + '='.repeat(50));
   console.log(`📊 Test Results: ${passed} passed, ${failed} failed`);
