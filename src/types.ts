@@ -31,6 +31,16 @@ export interface MindmapLink {
   isNew?: boolean;
 }
 
+export interface DocVersion {
+  id: string;
+  versionNumber: string;
+  createdAt: string;
+  createdBy: string;
+  summary: string;
+  content: string;
+  status: 'draft' | 'approved' | 'review' | 'deprecated';
+}
+
 export interface DocItem {
   id: string;
   title: string;
@@ -41,6 +51,7 @@ export interface DocItem {
   tags: string[];
   lastModified: string;
   version?: string;
+  versions?: DocVersion[];
   content: string;
 }
 

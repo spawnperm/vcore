@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PortalScreen } from '../../../../types';
-import { ShoppingCart, CreditCard, Users, Briefcase, Boxes, ChevronRight } from 'lucide-react';
+import { ShoppingCart, CreditCard, Users, Briefcase, Boxes, ChevronRight, Layers, Database } from 'lucide-react';
+import { screenRepository } from '../../../nocobase/ui-schema/screenRepository';
 
 interface PortalTreeNavProps {
   screens: PortalScreen[];
@@ -54,6 +55,25 @@ export const PortalTreeNav: React.FC<PortalTreeNavProps> = ({
       title: 'Склад (Inventory)',
       icon: <Boxes className="w-3.5 h-3.5 text-orange-400" />,
       screens: screens.filter((s) => s.id === 'screen-inventory' || s.section === '🏢 Склад'),
+    },
+    {
+      id: 'custom_collections',
+      title: 'Конструктор & Справочники',
+      badge: 'NOCOBASE',
+      icon: <Database className="w-3.5 h-3.5 text-cyan-400" />,
+      screens: [
+        {
+          id: 'screen-custom-builder',
+          title: '🛠️ Конструктор экранов',
+          section: '🏢 Пользовательские справочники',
+          isNew: true,
+        },
+        ...screens.filter(
+          (s) =>
+            s.section === '🏢 Пользовательские справочники' &&
+            s.id !== 'screen-custom-builder'
+        ),
+      ],
     },
   ];
 

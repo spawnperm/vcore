@@ -4,6 +4,7 @@ import {
   MindmapNode,
   MindmapLink,
   DocItem,
+  DocVersion,
   PortalScreen,
   DataFlowNode,
   DataFlowStream,
@@ -518,6 +519,41 @@ export default function App() {
     setActiveAgentAction('Документ обновлён и синхронизирован в localStorage');
   };
 
+  // Create Version Handler for ADR docs with snapshot history
+  const handleCreateDocVersion = (docId: string, newVersion: DocVersion) => {
+    setDocs((prev) =>
+      prev.map((d) => {
+        if (d.id === docId) {
+          const versions = d.versions || [];
+          return {
+            ...d,
+            versions: [...versions, newVersion],
+            version: newVersion.versionNumber,
+            lastModified: `Только что (${newVersion.versionNumber})`,
+            status: newVersion.status,
+          };
+        }
+        return d;
+      })
+    );
+
+    const ev: HistoryEvent = {
+      id: `ver-ev-${Date.now()}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'commit',
+      title: `Зафиксирована версия ${newVersion.versionNumber}: ${newVersion.summary}`,
+      author: newVersion.createdBy,
+      agents: ['ADR-Архитектор', 'Docs'],
+      prNumber: '#4822',
+      servicesAffected: ['Billing Service', 'Saga Orchestrator'],
+      docsAffected: [docId],
+      details: `Зафиксирован снимок документации версией ${newVersion.versionNumber}. Доступно сравнение (diff) и откат.`,
+      relatedNodeId: 'billing-node',
+    };
+    setHistoryEvents((prev) => [ev, ...prev]);
+    setActiveAgentAction(`Зафиксирована версия ${newVersion.versionNumber} для ${docId}`);
+  };
+
   // Reset entire local storage to initial defaults
   const handleResetAllStorage = () => {
     if (window.confirm('Сбросить все сохранённые данные (узлы, доки, историю) к исходному состоянию?')) {
@@ -690,6 +726,7 @@ export default function App() {
               }}
               onApproveDoc={handleApproveDoc}
               onUpdateDoc={handleUpdateDoc}
+              onCreateVersion={handleCreateDocVersion}
             />
           )}
 

@@ -174,7 +174,18 @@ export function loadPersistedDocs(fallback: DocItem[]): DocItem[] {
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
     if (isValidDocsArray(parsed)) {
-      return parsed;
+      // Enrich docs with fallback versions if not yet initialized
+      return parsed.map((doc) => {
+        const fallbackDoc = fallback.find((f) => f.id === doc.id);
+        if ((!doc.versions || doc.versions.length === 0) && fallbackDoc?.versions) {
+          return {
+            ...doc,
+            versions: fallbackDoc.versions,
+            version: doc.version || fallbackDoc.version,
+          };
+        }
+        return doc;
+      });
     }
     console.warn('[StorageSync] Invalid docs structure in localStorage, using fallback.');
     return fallback;

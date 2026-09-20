@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewMode } from './PortalTopBar';
-import { ShoppingCart, CreditCard, TrendingUp, Users, Truck, FileText, Boxes } from 'lucide-react';
+import { ShoppingCart, CreditCard, TrendingUp, Users, Truck, FileText, Boxes, Database, Layers } from 'lucide-react';
 
 interface PortalBrowserFrameProps {
   selectedScreenId: string;
@@ -101,6 +101,26 @@ export const PortalBrowserFrame: React.FC<PortalBrowserFrameProps> = ({
                   </span>
                 </button>
               )}
+
+              {/* Custom Builder item */}
+              <div className="pt-2 mt-2 border-t border-slate-800/80">
+                <button
+                  onClick={() => onSelectScreen('screen-custom-builder')}
+                  className={`w-full text-left p-2 rounded-lg flex items-center justify-between transition-colors ${
+                    selectedScreenId === 'screen-custom-builder'
+                      ? 'bg-cyan-950 text-cyan-300 font-bold border border-cyan-800'
+                      : 'text-slate-400 hover:bg-slate-850 hover:text-cyan-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="truncate">Конструктор</span>
+                  </div>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-900/60 text-cyan-300 font-mono">
+                    NocoBase
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 

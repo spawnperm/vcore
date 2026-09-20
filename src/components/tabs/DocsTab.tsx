@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DocItem, DocComment } from '../../types';
+import { DocItem, DocComment, DocVersion } from '../../types';
 import {
   FileText,
   CheckCircle2,
@@ -17,7 +17,13 @@ import {
   AlertCircle,
   Copy,
   Check,
+  GitCompare,
+  History,
+  GitCommit,
 } from 'lucide-react';
+import { DocDiffViewer } from './docs/DocDiffViewer';
+import { CreateVersionModal } from './docs/CreateVersionModal';
+import { DocVersionsDrawer } from './docs/DocVersionsDrawer';
 
 interface DocsTabProps {
   docs: DocItem[];
@@ -28,6 +34,7 @@ interface DocsTabProps {
   onDiscussWithAgent: (docTitle: string) => void;
   onApproveDoc?: (docId: string) => void;
   onUpdateDoc?: (docId: string, updatedContent: string) => void;
+  onCreateVersion?: (docId: string, newVersion: DocVersion) => void;
 }
 
 export const DocsTab: React.FC<DocsTabProps> = ({
@@ -39,9 +46,14 @@ export const DocsTab: React.FC<DocsTabProps> = ({
   onDiscussWithAgent,
   onApproveDoc,
   onUpdateDoc,
+  onCreateVersion,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
+  const [isDiffOpen, setIsDiffOpen] = useState(false);
+  const [isCreateVersionOpen, setIsCreateVersionOpen] = useState(false);
+  const [isVersionsDrawerOpen, setIsVersionsDrawerOpen] = useState(false);
+  const [versionFeedback, setVersionFeedback] = useState('');
   const [comments, setComments] = useState<DocComment[]>([
     {
       id: 'c1',
@@ -63,6 +75,7 @@ export const DocsTab: React.FC<DocsTabProps> = ({
   const [exportFeedback, setExportFeedback] = useState('');
 
   const currentDoc = docs.find((d) => d.id === selectedDocId) || docs[0];
+  const docVersions = currentDoc.versions || [];
 
   const handleStartEdit = () => {
     setEditedContent(currentDoc.content);
@@ -76,6 +89,30 @@ export const DocsTab: React.FC<DocsTabProps> = ({
       currentDoc.content = editedContent;
     }
     setIsEditing(false);
+  };
+
+  const handleCreateVersion = (newVersion: DocVersion) => {
+    if (onCreateVersion) {
+      onCreateVersion(currentDoc.id, newVersion);
+    } else {
+      const currentVersions = currentDoc.versions || [];
+      currentDoc.versions = [...currentVersions, newVersion];
+      currentDoc.version = newVersion.versionNumber;
+      currentDoc.lastModified = 'Только что (новая версия)';
+    }
+    setVersionFeedback(`Зафиксирована ${newVersion.versionNumber}`);
+    setTimeout(() => setVersionFeedback(''), 3000);
+  };
+
+  const handleRestoreVersion = (content: string, versionNumber: string) => {
+    if (onUpdateDoc) {
+      onUpdateDoc(currentDoc.id, content);
+    } else {
+      currentDoc.content = content;
+    }
+    setEditedContent(content);
+    setVersionFeedback(`Восстановлено из ${versionNumber}`);
+    setTimeout(() => setVersionFeedback(''), 3000);
   };
 
   const handleAddComment = () => {
@@ -103,11 +140,19 @@ export const DocsTab: React.FC<DocsTabProps> = ({
   };
 
   return (
-    <div className="flex h-full w-full bg-slate-950 text-slate-200 overflow-hidden">
-      {/* Left Area: Main Document Content */}
-      <div className="flex-1 flex flex-col min-w-0 border-r border-slate-800">
-        {/* Document Action Header */}
-        <div className="h-14 px-6 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between gap-4 shrink-0">
+    <div className="flex h-full w-full bg-slate-950 text-slate-200 overflow-hidden relative">
+      {/* Left Area: Main Document Content or Diff Viewer */}
+      <div className="flex-1 flex flex-col min-w-0 border-r border-slate-800 h-full overflow-hidden">
+        {isDiffOpen ? (
+          <DocDiffViewer
+            doc={currentDoc}
+            onClose={() => setIsDiffOpen(false)}
+            onRestoreVersion={handleRestoreVersion}
+          />
+        ) : (
+          <>
+            {/* Document Action Header */}
+            <div className="h-14 px-6 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-2 truncate">
             <span className="p-1.5 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800">
               <FileText className="w-4 h-4" />
@@ -134,11 +179,54 @@ export const DocsTab: React.FC<DocsTabProps> = ({
 
           {/* Top Actions */}
           <div className="flex items-center gap-2 shrink-0">
+            {versionFeedback && (
+              <span className="text-xs text-cyan-400 bg-cyan-950/90 px-2.5 py-1 rounded border border-cyan-800 animate-fade font-medium">
+                {versionFeedback}
+              </span>
+            )}
             {exportFeedback && (
               <span className="text-xs text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded border border-emerald-800 animate-fade">
                 {exportFeedback}
               </span>
             )}
+
+            {/* ADR Version & Diff Controls */}
+            <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-lg border border-slate-800">
+              <button
+                onClick={() => setIsDiffOpen(true)}
+                className="px-2.5 py-1 rounded bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 transition-colors shadow-xs"
+                title="Сравнить версии документа (Diff)"
+              >
+                <GitCompare className="w-3.5 h-3.5" />
+                <span>Diff изменений</span>
+                {docVersions.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-indigo-950 text-[10px] font-mono border border-indigo-400/30">
+                    {docVersions.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setIsVersionsDrawerOpen(true)}
+                className="p-1.5 rounded bg-slate-800 hover:bg-slate-705 text-slate-300 hover:text-white border border-slate-700 text-xs flex items-center gap-1 transition-colors"
+                title="История версий документа"
+              >
+                <History className="w-3.5 h-3.5 text-slate-300" />
+                <span className="hidden sm:inline">История</span>
+              </button>
+
+              <button
+                onClick={() => setIsCreateVersionOpen(true)}
+                className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 border border-slate-700 text-xs font-medium flex items-center gap-1 transition-colors"
+                title="Зафиксировать новую версию документа"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Версия</span>
+              </button>
+            </div>
+
+            <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+
             <button
               onClick={() => handleExport('md')}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 text-xs flex items-center gap-1 transition-colors"
@@ -171,6 +259,18 @@ export const DocsTab: React.FC<DocsTabProps> = ({
         {/* Metadata Strip */}
         <div className="px-6 py-2 bg-slate-900/40 border-b border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
           <div className="flex flex-wrap items-center gap-4">
+            <div>
+              <span className="text-slate-500">Версия:</span>{' '}
+              <button
+                onClick={() => setIsVersionsDrawerOpen(true)}
+                className="font-mono text-[11px] text-cyan-400 hover:text-cyan-300 underline font-semibold inline-flex items-center gap-1"
+                title="Посмотреть историю версий"
+              >
+                <History className="w-3 h-3" />
+                {currentDoc.version || 'v1.0'}
+                {docVersions.length > 0 && ` (${docVersions.length} в истории)`}
+              </button>
+            </div>
             <div>
               <span className="text-slate-500">Автор:</span>{' '}
               <span className="text-slate-200 font-medium">{currentDoc.author}</span>
@@ -254,6 +354,22 @@ export const DocsTab: React.FC<DocsTabProps> = ({
             </button>
 
             <button
+              onClick={() => setIsDiffOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-800 text-xs font-medium flex items-center gap-1.5 transition-colors"
+            >
+              <GitCompare className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Сравнить версии (Diff)</span>
+            </button>
+
+            <button
+              onClick={() => setIsCreateVersionOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors"
+            >
+              <GitCommit className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Зафиксировать версию</span>
+            </button>
+
+            <button
               onClick={() => onDiscussWithAgent(currentDoc.title)}
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors"
             >
@@ -318,6 +434,8 @@ export const DocsTab: React.FC<DocsTabProps> = ({
             </div>
           </div>
         </div>
+        </>
+      )}
       </div>
 
       {/* Right Area: Table of Contents (Содержание) matching prompt ASCII */}
@@ -437,6 +555,23 @@ export const DocsTab: React.FC<DocsTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modals & Drawers */}
+      <CreateVersionModal
+        isOpen={isCreateVersionOpen}
+        doc={currentDoc}
+        onClose={() => setIsCreateVersionOpen(false)}
+        onCreateVersion={handleCreateVersion}
+      />
+
+      <DocVersionsDrawer
+        isOpen={isVersionsDrawerOpen}
+        doc={currentDoc}
+        onClose={() => setIsVersionsDrawerOpen(false)}
+        onOpenCreateVersion={() => setIsCreateVersionOpen(true)}
+        onOpenDiff={() => setIsDiffOpen(true)}
+        onRestoreVersion={handleRestoreVersion}
+      />
     </div>
   );
 };

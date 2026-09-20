@@ -16,6 +16,11 @@ import { SuppliersModuleView } from './modules/procurement/SuppliersModuleView';
 import { ContractsModuleView } from './modules/procurement/ContractsModuleView';
 import { InventoryModuleView } from './modules/procurement/InventoryModuleView';
 
+// NocoBase Architecture: Custom Screen & Field Builder
+import { CustomCollectionsManager } from '../../nocobase/ui/CustomCollectionsManager';
+import { SchemaRenderer } from '../../nocobase/ui/SchemaRenderer';
+import { screenRepository } from '../../nocobase/ui-schema/screenRepository';
+
 // DDD Application Hooks
 import { useOrdersContext } from '../application/useOrdersContext';
 import { useBillingSagaContext } from '../application/useBillingSagaContext';
@@ -149,6 +154,30 @@ export const PortalContainer: React.FC<PortalContainerProps> = ({
             {selectedScreenId === 'screen-contracts' && <ContractsModuleView contracts={contracts} />}
 
             {selectedScreenId === 'screen-inventory' && <InventoryModuleView inventory={inventory} />}
+
+            {/* NocoBase Custom Screen & Collections Hub */}
+            {selectedScreenId === 'screen-custom-builder' && (
+              <CustomCollectionsManager onOpenScreen={onSelectScreen} />
+            )}
+
+            {/* Dynamic UI-Schema rendered screens */}
+            {(selectedScreenId === 'screen-support-tickets' ||
+              selectedScreenId === 'screen-security-audits' ||
+              selectedScreenId.startsWith('screen-') &&
+                Boolean(screenRepository.getScreen(selectedScreenId))) &&
+              selectedScreenId !== 'screen-custom-builder' &&
+              selectedScreenId !== 'screen-orders' &&
+              selectedScreenId !== 'screen-billing' &&
+              selectedScreenId !== 'screen-funnel' &&
+              selectedScreenId !== 'screen-clients' &&
+              selectedScreenId !== 'screen-suppliers' &&
+              selectedScreenId !== 'screen-contracts' &&
+              selectedScreenId !== 'screen-inventory' && (
+                <SchemaRenderer
+                  screenId={selectedScreenId}
+                  onNavigateScreen={onSelectScreen}
+                />
+              )}
           </PortalBrowserFrame>
         </UxReviewOverlay>
       </div>

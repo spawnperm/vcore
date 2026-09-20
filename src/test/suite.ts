@@ -13,6 +13,7 @@ import { salesRepository } from '../modules/portal/infrastructure/repositories/s
 import { runPlanTabGraphTestSuite } from './planTabGraph.test.ts';
 import { runStorageTestSuite } from './storage.test.ts';
 import { runNatsTestSuite } from './nats.test.ts';
+import { runNocoBaseTestSuite } from './nocobase.test.ts';
 
 let passed = 0;
 let failed = 0;
@@ -118,6 +119,10 @@ async function runTests() {
   const natsRes = await runNatsTestSuite();
   passed += natsRes.passed;
   failed += natsRes.failed;
+
+  // Test 7: NocoBase Architecture: Custom Collections, Fields & UI-Schema Engine
+  console.log('\n');
+  runNocoBaseTestSuite();
 
   console.log('\n' + '='.repeat(50));
   console.log(`📊 Test Results: ${passed} passed, ${failed} failed`);
