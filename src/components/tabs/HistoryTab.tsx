@@ -313,8 +313,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 +        if not res.success:
 +            await self.compensate_failure(order_id)
 +            raise RefundFailedException("Bank gateway timeout")
-+        # 3. Publish to Kafka
-+        await self.kafka.publish("payments.refund", {"order": order_id})`}
++        # 3. Publish to NATS JetStream
++        await self.nats.publish("orders.v1.refund", {"order": order_id})`}
               </pre>
             </div>
             <div className="flex justify-end pt-3 border-t border-slate-800">

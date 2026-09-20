@@ -4,6 +4,7 @@ export type SagaStepId =
   | 'VALIDATE_REQUEST'
   | 'ACQUIRER_CALL'
   | 'LEDGER_ADJUSTMENT'
+  | 'JETSTREAM_EVENT'
   | 'KAFKA_EVENT'
   | 'CLIENT_NOTIFICATION';
 
@@ -95,7 +96,8 @@ export interface RefundSagaCompletedPayload {
   sagaId: string;
   orderId: string;
   amount: number;
-  kafkaTopic: string;
+  jetstreamSubject: string;
+  kafkaTopic?: string;
 }
 
 export class RefundSagaCompletedEvent implements DomainEvent<RefundSagaCompletedPayload> {

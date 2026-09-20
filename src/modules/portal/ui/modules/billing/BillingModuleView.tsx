@@ -52,7 +52,7 @@ export const BillingModuleView: React.FC<BillingModuleViewProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Распределённая транзакция: Order Service → Bank Acquirer → Ledger → Kafka → Notify
+            Распределённая транзакция: Order Service → Bank Acquirer → Ledger → NATS JetStream → Notify
           </p>
         </div>
 

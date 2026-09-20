@@ -46,7 +46,7 @@ async function runTests() {
       { id: 'VALIDATE_REQUEST', title: 'Проверка прав', service: 'Auth', status: 'RUNNING' },
       { id: 'ACQUIRER_CALL', title: 'Вызов эквайринга', service: 'Bank', status: 'PENDING' },
       { id: 'LEDGER_ADJUSTMENT', title: 'Сторнирование', service: 'Ledger', status: 'PENDING' },
-      { id: 'KAFKA_EVENT', title: 'Публикация в Kafka', service: 'Broker', status: 'PENDING' },
+      { id: 'JETSTREAM_EVENT', title: 'Публикация в NATS JetStream', service: 'Broker', status: 'PENDING' },
       { id: 'CLIENT_NOTIFICATION', title: 'SMS уведомление', service: 'Notify', status: 'PENDING' },
     ],
   };

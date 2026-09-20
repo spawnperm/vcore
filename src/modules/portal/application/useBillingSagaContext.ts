@@ -64,11 +64,11 @@ export function useBillingSagaContext() {
           message: 'Корректировка субсчетов выручки',
         },
         {
-          id: 'KAFKA_EVENT',
-          title: 'Публикация события в payments.refund',
-          service: 'event-broker-kafka',
+          id: 'JETSTREAM_EVENT',
+          title: 'Публикация события в orders.v1.refund',
+          service: 'nats-jetstream',
           status: 'PENDING',
-          message: 'Топик payments.refund, партиция #1',
+          message: 'Stream: ORDERS, Subject: orders.v1.refund, ack: explicit',
         },
         {
           id: 'CLIENT_NOTIFICATION',
@@ -101,7 +101,7 @@ export function useBillingSagaContext() {
 
       // Simulate Step-by-Step Distributed Saga Orchestration
       const delays = [800, 1000, 700, 600, 600];
-      const latencies = [42, 380, 85, 12, 64];
+      const latencies = [42, 380, 85, 1, 64];
 
       let currentStep = 0;
 
@@ -117,13 +117,14 @@ export function useBillingSagaContext() {
               runNext();
             } else {
               setIsExecuting(false);
-              // Publish Saga Completed Domain Event
+              // Publish Saga Completed Domain Event into NATS JetStream Event Mesh
               portalEventBus.publish(
                 new RefundSagaCompletedEvent({
                   sagaId: newSagaId,
                   orderId,
                   amount,
-                  kafkaTopic: 'payments.refund',
+                  jetstreamSubject: 'orders.v1.refund',
+                  kafkaTopic: 'orders.v1.refund',
                 })
               );
             }

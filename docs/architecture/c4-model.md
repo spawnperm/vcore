@@ -20,8 +20,8 @@
                │                               │
                ▼                               ▼
 ┌──────────────────────────────┐ ┌────────────────────────────────────────────┐
-│   Google Gemini 3.8 Flash    │ │        Apache Kafka Event Broker           │
-│   & Gemini Live API          │ │  Топики: payments.refund, orders.created   │
+│   Google Gemini 3.8 Flash    │ │        NATS 2.10 JetStream Event Mesh      │
+│   & Gemini Live API          │ │  Subjects: orders.v1.*, payments.v1.*     │
 └──────────────────────────────┘ └────────────────────────────────────────────┘
 ```
 

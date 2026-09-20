@@ -85,9 +85,9 @@ app.post('/api/dsh/execute', async (req, res) => {
 Твоя задача — принимать голосовые или текстовые команды разработчика/архитектора и генерировать:
 1. Краткое архитектурное резюме (explanation) на русском языке.
 2. Пошаговый план DSH (dshPlan) в виде массива строк (например: "AST анализ компонентов", "Синтез Saga-компенсатора", "DSH Test Runner: 4 проверки", "Инжекция в Portal State").
-3. Дифф или патч кода (patch) с реальным кодом на TypeScript/React или OpenAPI/Kafka.
+3. Дифф или патч кода (patch) с реальным кодом на TypeScript/React или NATS/JetStream.
 4. Результаты тестового раннера DSH (tests) в виде массива объектов { name, status: "PASSED" | "FAILED", durationMs }.
-5. Действия по модификации портала (portalAction), такие как добавление кнопки/модалки в экран портала, создание/обновление узла в Плане, обновление потоков данных Kafka.
+5. Действия по модификации портала (portalAction), такие как добавление кнопки/модалки в экран портала, создание/обновление узла в Плане, обновление потоков данных NATS/JetStream.
 
 Верни ответ ТОЛЬКО в строгом формате JSON со следующей структурой:
 {
@@ -328,7 +328,7 @@ function generateMockDshResponse(command: string, context: any) {
       dshPlan: [
         '1. DSH AST Parser: Анализ PortalScreen ("screen-orders")',
         '2. Gemini 3.8 Flash: Генерация компонента ModalRefundWithSmsVerification',
-        '3. DSH Test Runner: Валидация идемпотентного ключа в Kafka payments.refund',
+        '3. DSH Test Runner: Валидация идемпотентного ключа в NATS JetStream (orders.v1.refund)',
         '4. DSH Injector: Монтирование в живое дерево портала',
       ],
       patch: {
@@ -346,7 +346,7 @@ function generateMockDshResponse(command: string, context: any) {
         { name: 'test_refund_saga_idempotency', status: 'PASSED', durationMs: 12 },
         { name: 'test_sms_otp_rate_limiter', status: 'PASSED', durationMs: 8 },
         { name: 'test_portal_react_dom_render', status: 'PASSED', durationMs: 15 },
-        { name: 'test_kafka_schema_v2_compat', status: 'PASSED', durationMs: 22 },
+        { name: 'test_nats_jetstream_schema_v2_compat', status: 'PASSED', durationMs: 3 },
       ],
       portalAction: {
         type: 'add_screen_feature',

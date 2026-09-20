@@ -185,7 +185,7 @@ export function runStorageTestSuite() {
       selectedNodeId: 'billing-node',
       selectedDocId: 'adr-042',
       selectedScreenId: 'screen-orders',
-      selectedStreamId: 'stream-billing-kafka',
+      selectedStreamId: 'stream-billing-jetstream',
     };
 
     // Check fallback when uninitialized

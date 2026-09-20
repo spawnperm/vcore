@@ -63,7 +63,7 @@ export const INITIAL_NODES: MindmapNode[] = [
     y: 40,
     description: 'Распределённая транзакция: Order -> Payment -> Refund -> Notify',
     relatedDocId: 'adr-042',
-    relatedFlowId: 'stream-billing-kafka',
+    relatedFlowId: 'stream-billing-jetstream',
   },
   {
     id: 'refund-endpoint',
@@ -168,13 +168,13 @@ export const INITIAL_NODES: MindmapNode[] = [
   {
     id: 'infra-kafka',
     parentId: 'infra-root',
-    label: 'Kafka Broker (payments.refund)',
+    label: '📦 Архив Kafka (Выведен из эксплуатации)',
     category: 'infra',
     status: 'completed',
     progress: 100,
     x: -30,
     y: 160,
-    description: 'Брокер сообщений для асинхронного взаимодействия саги',
+    description: 'Брокер Kafka выведен из эксплуатации. Все потоки и события саги переведены на NATS 2.10 JetStream (ADR-043)',
     relatedDocId: 'adr-040',
   },
   {
@@ -233,7 +233,7 @@ export const INITIAL_LINKS: MindmapLink[] = [
   { id: 'l13', source: 'infra-root', target: 'infra-kafka' },
   { id: 'l14', source: 'sec-root', target: 'sec-pii', isPulsing: true },
   // Cross-domain links
-  { id: 'l15', source: 'saga-pattern', target: 'infra-kafka', label: 'события саги', isPulsing: true },
+  { id: 'l15', source: 'saga-pattern', target: 'infra-nats', label: 'события саги (JetStream)', isPulsing: true },
   { id: 'l16', source: 'billing-node', target: 'ui-billing-menu', label: 'UI интеграция' },
   { id: 'l17', source: 'infra-root', target: 'infra-nats', isPulsing: true, isNew: true },
   { id: 'l18', source: 'billing-node', target: 'infra-nats', label: 'NATS RPC & JetStream', isPulsing: true, isNew: true },
@@ -270,7 +270,7 @@ export const MOCK_DOCS: DocItem[] = [
 4. Полный журнал аудита для службы безопасности (маскирование PAN и CVC).
 
 ## Решение
-Используем паттерн **Saga с оркестрацией** на базе Kafka и сервиса Billing:
+Используем паттерн **Saga с оркестрацией** на базе NATS JetStream и сервиса Billing:
 
 \`\`\`
 [Клиент/Менеджер] 
@@ -281,10 +281,10 @@ export const MOCK_DOCS: DocItem[] = [
                ┌────────────────┴────────────────┐
                │ 1. Блокировка суммы в БД         │
                │ 2. Запрос в Bank Provider       │
-               │ 3. Публикация 'payment.refunded'│
+               │ 3. Публикация orders.v1.refund  │
                └────────────────┬────────────────┘
                                 │
-                         [Kafka Topic]
+                   [NATS 2.10 JetStream (Raft)]
                                 │
                      [Notification Service]
 \`\`\`
@@ -319,24 +319,26 @@ export const MOCK_DOCS: DocItem[] = [
   },
   {
     id: 'adr-040',
-    title: 'ADR-040: Шина событий Kafka для асинхронного обмена',
+    title: 'ADR-040: [Архив] Шина событий Kafka (Выведена в пользу NATS JetStream)',
     type: 'adr',
-    status: 'approved',
+    status: 'deprecated',
     author: 'Инфра-агент',
-    relatedNodes: ['infra-kafka'],
-    tags: ['Kafka', 'Events', 'Инфра'],
-    lastModified: '3 дня назад',
-    version: '1.2',
-    content: `# ADR-040: Шина событий Kafka
+    relatedNodes: ['infra-kafka', 'infra-nats'],
+    tags: ['Kafka', 'NATS', 'JetStream', 'Архив'],
+    lastModified: 'Только что (миграция)',
+    version: '2.0-deprecated',
+    content: `# ADR-040: [Архив] Шина событий Kafka
 
-**Статус:** ✅ утверждён  
+**Статус:** ⚠️ УСТАРЕЛ / ВЫВЕДЕН ИЗ ЭКСПЛУАТАЦИИ (Superseded by ADR-043)  
 **Автор:** Инфра-агент  
+**Замещающий документ:** [ADR-043: Миграция шины событий на NATS JetStream](#adr-043)  
 
-## Решение
-Развёрнут кластер Kafka из 3 брокеров в Kubernetes с репликацией топиков RF=3 и гарантией доставки \`acks=all\`. Топики:
-- \`orders.created\`
-- \`payments.charged\`
-- \`payments.refund\` (партиционирование по \`order_id\`)
+## История решения
+Исторически был развёрнут кластер Kafka из 3 брокеров. В связи с высокими задержками (4–12 мс) и повышенным потреблением оперативной памяти кластер Kafka был полностью замещён легковесным ядром **NATS 2.10 JetStream** (ADR-043).
+Все топики мигрированы в subjects JetStream:
+- \`orders.created\` → subject \`orders.v1.created\`
+- \`payments.charged\` → subject \`payments.v1.charged\`
+- \`payments.refund\` → subject \`orders.v1.refund\`
 `,
   },
   {
@@ -699,32 +701,32 @@ export const MOCK_DATAFLOW_NODES: DataFlowNode[] = [
   },
   {
     id: 'kafka-queue',
-    name: 'Kafka (payments.refund)',
+    name: 'Kafka (Decommissioned / Выведен)',
     type: 'queue',
-    status: 'active',
+    status: 'idle',
     layer: 'queues',
     x: 830,
     y: 120,
-    isNew: true,
-    technology: 'Apache Kafka 3.6 / Strimzi Cluster',
-    version: 'v3.6.1',
+    isNew: false,
+    technology: 'Apache Kafka (архивный брокер, 100% трафика в NATS JetStream)',
+    version: 'v3.6.1-archived',
     metrics: {
-      rps: 820,
-      peakRps: 2400,
-      cpuPercent: 26,
-      memoryMb: 1540,
+      rps: 0,
+      peakRps: 0,
+      cpuPercent: 1,
+      memoryMb: 120,
       memoryLimitMb: 4096,
-      p50LatencyMs: 2,
-      p95LatencyMs: 5,
-      p99LatencyMs: 12,
+      p50LatencyMs: 0,
+      p95LatencyMs: 0,
+      p99LatencyMs: 0,
       errorRate: 0.0,
-      replicas: { current: 3, max: 3 },
-      queueLag: 12,
-      activeConnections: 180,
-      networkInMb: 34.0,
-      networkOutMb: 68.0,
-      healthScore: 99,
-      uptime: '99.99%',
+      replicas: { current: 0, max: 3 },
+      queueLag: 0,
+      activeConnections: 0,
+      networkInMb: 0.0,
+      networkOutMb: 0.0,
+      healthScore: 100,
+      uptime: 'Archived',
     },
   },
   {
@@ -918,28 +920,28 @@ export const MOCK_DATAFLOW_STREAMS: DataFlowStream[] = [
     schemaSample: 'POST /v2/acquirer/refund { pan_masked: "4276********1102", amount: 14200 }',
   },
   {
-    id: 'stream-billing-kafka',
+    id: 'stream-billing-jetstream',
     source: 'billing-svc',
-    target: 'kafka-queue',
-    protocol: 'Kafka',
-    state: 'planned',
+    target: 'nats-cluster',
+    protocol: 'JetStream',
+    state: 'active',
     isNew: true,
-    throughput: '65 msg/s',
-    latency: '4.8 ms',
-    owner: 'Billing Агент',
-    schemaSample: 'Event { type: "PaymentRefunded", saga_id: "77492", order_id: "ORD-98421" }',
+    throughput: '420 msg/s',
+    latency: '0.8 ms',
+    owner: 'Billing Saga Orchestrator',
+    schemaSample: 'Subject: orders.v1.refund { saga_id: "77492", order_id: "ORD-98421", amount: 14200 }',
   },
   {
-    id: 'stream-kafka-notify',
-    source: 'kafka-queue',
+    id: 'stream-jetstream-notify',
+    source: 'nats-cluster',
     target: 'notify-svc',
-    protocol: 'Kafka',
-    state: 'planned',
+    protocol: 'JetStream',
+    state: 'active',
     isNew: true,
-    throughput: '65 msg/s',
-    latency: '5.1 ms',
+    throughput: '420 msg/s',
+    latency: '1.1 ms',
     owner: 'Communications Team',
-    schemaSample: 'ConsumerGroup: notification-dispatchers -> SMS/Push gateway',
+    schemaSample: 'Consumer: notify-dispatcher on orders.v1.refund -> SMS/Push gateway',
   },
   {
     id: 'stream-orders-nats',
@@ -989,7 +991,7 @@ export const MOCK_HISTORY: HistoryEvent[] = [
     author: 'Иван Петров',
     agents: ['Billing', 'API', 'Docs'],
     prNumber: '#4822',
-    servicesAffected: ['Billing', 'API Gateway', 'Kafka'],
+    servicesAffected: ['Billing', 'API Gateway', 'NATS JetStream'],
     docsAffected: ['ADR-042', 'POST /refund'],
     details: 'Сгенерирована структура оркестратора саги, тесты компенсации и OpenAPI спецификация.',
     canRollback: true,
@@ -1079,7 +1081,7 @@ export const MOCK_AGENT_CHAT: AgentChatMessage[] = [
     sender: 'agent',
     agentName: 'Billing-агент',
     avatar: '🤖',
-    text: 'Принято! Генерирую файл saga.py с компенсирующими транзакциями, топики Kafka и черновик ADR-042. Текущий прогресс по ветке: 60%.',
+    text: 'Принято! Генерирую файл saga.py с компенсирующими транзакциями, subject orders.v1.refund в NATS JetStream и черновик ADR-043. Текущий прогресс по ветке: 100%.',
     timestamp: '14:25',
     suggestedActions: ['Показать diff кода', 'Запустить юнит-тесты', 'Обновить ADR-042'],
   },

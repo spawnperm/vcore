@@ -96,7 +96,7 @@ export default function App() {
     initialSelectedNodeId: 'billing-node',
     initialSelectedDocId: 'adr-042',
     initialSelectedScreenId: 'screen-orders',
-    initialSelectedStreamId: 'stream-billing-kafka',
+    initialSelectedStreamId: 'stream-billing-jetstream',
   });
   const [screens] = useState<PortalScreen[]>(MOCK_SCREENS);
   const [dataFlowNodes] = useState<DataFlowNode[]>(MOCK_DATAFLOW_NODES);
@@ -130,7 +130,7 @@ export default function App() {
     if (nodeId === 'billing-node' || nodeId === 'saga-pattern') {
       setSelectedDocId('adr-042');
       setSelectedScreenId('screen-orders');
-      setSelectedStreamId('stream-billing-kafka');
+      setSelectedStreamId('stream-billing-jetstream');
     } else if (nodeId === 'refund-endpoint' || nodeId === 'api-gateway') {
       setSelectedDocId('api-refund');
       setSelectedStreamId('stream-web-gw');

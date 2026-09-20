@@ -45,7 +45,7 @@ export function useLocalStorageSync({
   initialSelectedNodeId = 'billing-node',
   initialSelectedDocId = 'adr-042',
   initialSelectedScreenId = 'screen-orders',
-  initialSelectedStreamId = 'stream-billing-kafka',
+  initialSelectedStreamId = 'stream-billing-jetstream',
 }: UseLocalStorageSyncOptions) {
   const isAvailable = isLocalStorageAvailable();
 

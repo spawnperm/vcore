@@ -46,7 +46,7 @@ export const RefundSagaModal: React.FC<RefundSagaModalProps> = ({
                 Оформление возврата: {defaultNumber}
               </h4>
               <p className="text-[11px] text-slate-400">
-                Запуск распределённого оркестратора Saga (Order → Bank → Kafka → Notify)
+                Запуск распределённого оркестратора Saga (Order → Bank → NATS JetStream → Notify)
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export const RefundSagaModal: React.FC<RefundSagaModalProps> = ({
               <ArrowRight className="w-3 h-3 text-slate-500" />
               <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">3. Ledger баланс</span>
               <ArrowRight className="w-3 h-3 text-slate-500" />
-              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">4. Топик Kafka</span>
+              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">4. NATS JetStream</span>
               <ArrowRight className="w-3 h-3 text-slate-500" />
               <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">5. Уведомление</span>
             </div>
@@ -111,7 +111,7 @@ export const RefundSagaModal: React.FC<RefundSagaModalProps> = ({
                   Оркестратор Saga выполняет распределённые транзакции...
                 </span>
                 <span className="text-[10px] text-cyan-400">
-                  Публикация событий в топик payments.refund
+                  Публикация событий в subject orders.v1.refund (NATS JetStream)
                 </span>
               </div>
             </div>

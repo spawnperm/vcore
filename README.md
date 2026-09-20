@@ -7,7 +7,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-4.x-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**МИРОВИЗОР (vcore)** — это сквозная среда разработки и оркестрации распределённой микросервисной системы для корпоративного портала ООО «Ромашка». Платформа объединяет граф архитектурного планирования (DAG/Mindmap с подсветкой критического пути), техническую документацию (ADR, OpenAPI, C4), живое зеркало портала с поддержкой предметно-ориентированного проектирования (DDD), мониторинг потоков данных и событий Kafka, а также интеграцию с автономным шлюзом **DeepSeek-Harness (DSH)** и голосовым управлением **Gemini Live API**.
+**МИРОВИЗОР (vcore)** — это сквозная среда разработки и оркестрации распределённой микросервисной системы для корпоративного портала ООО «Ромашка». Платформа объединяет граф архитектурного планирования (DAG/Mindmap с подсветкой критического пути), техническую документацию (ADR, OpenAPI, C4), живое зеркало портала с поддержкой предметно-ориентированного проектирования (DDD), мониторинг потоков данных и событий NATS JetStream Event Mesh, а также интеграцию с автономным шлюзом **DeepSeek-Harness (DSH)** и голосовым управлением **Gemini Live API**.
 
 ---
 
@@ -39,17 +39,18 @@
    - Изолированные Bounded Contexts: `Billing (Платёжная сага)`, `Orders (Управление заказами)`, `Procurement (Закупки, поставщики, склад)`, `Sales (Клиенты, воронка)`, `UX Review (Аудит и ревью)`.
    - Встроенная шина доменных событий (`DomainEventBus`).
 
-3. **Распределённая платёжная сага (Refund Saga)**:
-   - Пошаговое выполнение распределённых транзакций (`VALIDATE_REQUEST` → `ACQUIRER_CALL` → `LEDGER_ADJUSTMENT` → `KAFKA_EVENT` → `CLIENT_NOTIFICATION`).
-   - Симуляция задержек сети, расчёт метрик и генерация событий в топик `payments.refund`.
+3. **Распределённая платёжная сага (Refund Saga) на NATS JetStream**:
+   - Пошаговое выполнение распределённых транзакций (`VALIDATE_REQUEST` → `ACQUIRER_CALL` → `LEDGER_ADJUSTMENT` → `JETSTREAM_EVENT` → `CLIENT_NOTIFICATION`).
+   - Субмиллисекундная передача сообщений, публикация в subject `orders.v1.refund` через NATS JetStream Event Mesh.
 
 4. **DeepSeek-Harness (DSH) Gateway & Gemini Live API**:
    - Двунаправленное потоковое взаимодействие с моделями семейства Gemini (3.8 Flash, Live API).
    - Поддержка мультимодального аудиопотока 16kHz PCM / 24kHz PCM через WebSocket.
    - Генерация AST-патчей и автоматическое выполнение тестов через `/api/dsh/stream` и `/api/dsh/status`.
 
-5. **Мониторинг потоков данных (DataFlows)**:
-   - Визуализация сервисов, очередей Kafka, баз данных PostgreSQL и внешних систем.
+5. **Мониторинг потоков данных (DataFlows) & NATS Консоль**:
+   - Визуализация сервисов, кластера NATS 2.10 JetStream (3-Node Raft), баз данных PostgreSQL и внешних систем.
+   - Встроенная интерактивная консоль NATS JetStream (streams, consumers, Key-Value store, Pub/Sub subjects).
    - Маркировка конфиденциальных персональных данных (PII) и отслеживание задержек/проблем.
 
 ---
@@ -75,7 +76,7 @@
                                            │
                         ┌──────────────────┴──────────────────┐
                         ▼                                     ▼
-             [Gemini 3.8 Flash API]                [Kafka / Broker Event Stream]
+             [Gemini 3.8 Flash API]          [NATS 2.10 JetStream Event Mesh]
 ```
 
 ### Структура каталогов Bounded Contexts:

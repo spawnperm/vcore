@@ -24,7 +24,7 @@ const INITIAL_PINS: UxReviewPinProps[] = [
     xPercent: 62,
     yPercent: 44,
     author: 'Алексей Кузнецов (TechLead)',
-    text: 'Необходимо отображать latency каждого шага саги в реальном времени при получении heartbeat из Kafka.',
+    text: 'Необходимо отображать latency каждого шага саги в реальном времени при получении heartbeat из NATS JetStream.',
     time: '5 мин назад',
     status: 'open',
   },
