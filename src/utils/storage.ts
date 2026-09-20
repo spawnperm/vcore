@@ -4,15 +4,24 @@
  * with safe schema validation, error recovery, and cross-tab awareness.
  */
 
-import { MindmapNode, MindmapLink, DocItem, HistoryEvent } from '../types';
+import { MindmapNode, MindmapLink, DocItem, HistoryEvent, TabType } from '../types';
 
 export const STORAGE_KEYS = {
   NODES: 'vcore_nodes_v1',
   LINKS: 'vcore_links_v1',
   DOCS: 'vcore_docs_v1',
   HISTORY: 'vcore_history_v1',
+  NAV_STATE: 'vcore_nav_state_v1',
   METADATA: 'vcore_storage_meta_v1',
 } as const;
+
+export interface NavigationContextState {
+  activeTab: TabType;
+  selectedNodeId: string;
+  selectedDocId: string;
+  selectedScreenId: string;
+  selectedStreamId: string;
+}
 
 export interface StorageMetadata {
   lastSavedAt: string;
@@ -100,6 +109,23 @@ function isValidHistoryArray(data: unknown): data is HistoryEvent[] {
 }
 
 /**
+ * Validates NavigationContextState
+ */
+export function isValidNavState(data: unknown): data is NavigationContextState {
+  if (typeof data !== 'object' || data === null) return false;
+  const d = data as Record<string, unknown>;
+  const validTabs: TabType[] = ['plan', 'docs', 'portal', 'dataflows', 'flows', 'history'];
+  return (
+    typeof d.activeTab === 'string' &&
+    validTabs.includes(d.activeTab as TabType) &&
+    typeof d.selectedNodeId === 'string' &&
+    typeof d.selectedDocId === 'string' &&
+    typeof d.selectedScreenId === 'string' &&
+    typeof d.selectedStreamId === 'string'
+  );
+}
+
+/**
  * Load persisted nodes from localStorage, falling back to default
  */
 export function loadPersistedNodes(fallback: MindmapNode[]): MindmapNode[] {
@@ -179,6 +205,26 @@ export function loadPersistedHistory(fallback: HistoryEvent[]): HistoryEvent[] {
 }
 
 /**
+ * Load persisted navigation & selection context from localStorage, falling back to default
+ */
+export function loadPersistedNavState(fallback: NavigationContextState): NavigationContextState {
+  if (!isLocalStorageAvailable()) return fallback;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEYS.NAV_STATE);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    if (isValidNavState(parsed)) {
+      return parsed;
+    }
+    console.warn('[StorageSync] Invalid navigation state in localStorage, using fallback.');
+    return fallback;
+  } catch (err) {
+    console.error('[StorageSync] Failed to load navigation state from localStorage:', err);
+    return fallback;
+  }
+}
+
+/**
  * Save MindmapNodes to localStorage
  */
 export function saveNodesToStorage(nodes: MindmapNode[]): boolean {
@@ -238,6 +284,20 @@ export function saveHistoryToStorage(history: HistoryEvent[]): boolean {
 }
 
 /**
+ * Save NavigationContextState (activeTab & selected context IDs) to localStorage
+ */
+export function saveNavStateToStorage(navState: NavigationContextState): boolean {
+  if (!isLocalStorageAvailable()) return false;
+  try {
+    window.localStorage.setItem(STORAGE_KEYS.NAV_STATE, JSON.stringify(navState));
+    return true;
+  } catch (err) {
+    console.error('[StorageSync] Failed to save navigation state to localStorage:', err);
+    return false;
+  }
+}
+
+/**
  * Touch metadata with latest sync timestamp
  */
 function touchMetadata(partial: Partial<StorageMetadata> = {}) {
@@ -280,6 +340,7 @@ export function clearStoredState(): void {
     window.localStorage.removeItem(STORAGE_KEYS.LINKS);
     window.localStorage.removeItem(STORAGE_KEYS.DOCS);
     window.localStorage.removeItem(STORAGE_KEYS.HISTORY);
+    window.localStorage.removeItem(STORAGE_KEYS.NAV_STATE);
     window.localStorage.removeItem(STORAGE_KEYS.METADATA);
   } catch (err) {
     console.error('[StorageSync] Failed to clear localStorage:', err);
@@ -294,6 +355,7 @@ export function hasPersistedState(): boolean {
   return Boolean(
     window.localStorage.getItem(STORAGE_KEYS.NODES) ||
     window.localStorage.getItem(STORAGE_KEYS.DOCS) ||
-    window.localStorage.getItem(STORAGE_KEYS.HISTORY)
+    window.localStorage.getItem(STORAGE_KEYS.HISTORY) ||
+    window.localStorage.getItem(STORAGE_KEYS.NAV_STATE)
   );
 }

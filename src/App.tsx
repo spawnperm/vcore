@@ -51,16 +51,9 @@ import {
 
 export default function App() {
   // Navigation & View State
-  const [activeTab, setActiveTab] = useState<TabType>('plan');
   const [selectedOrg, setSelectedOrg] = useState('ООО Ромашка');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  // Core Synchronized Entities State across all 5 views
-  const [selectedNodeId, setSelectedNodeId] = useState<string>('billing-node');
-  const [selectedDocId, setSelectedDocId] = useState<string>('adr-042');
-  const [selectedScreenId, setSelectedScreenId] = useState<string>('screen-orders');
-  const [selectedStreamId, setSelectedStreamId] = useState<string>('stream-billing-kafka');
 
   // Execution & Simulation Player State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -70,7 +63,7 @@ export default function App() {
   const [progressPercent, setProgressPercent] = useState(60);
   const [activeAgentAction, setActiveAgentAction] = useState('Billing-агент: генерация saga-компенсатора');
 
-  // Persistent data state synced with localStorage (nodes, links, docs, history)
+  // Persistent state synced with localStorage (nodes, links, docs, history, activeTab, selected context IDs)
   const {
     nodes,
     setNodes,
@@ -80,6 +73,16 @@ export default function App() {
     setDocs,
     historyEvents,
     setHistoryEvents,
+    activeTab,
+    setActiveTab,
+    selectedNodeId,
+    setSelectedNodeId,
+    selectedDocId,
+    setSelectedDocId,
+    selectedScreenId,
+    setSelectedScreenId,
+    selectedStreamId,
+    setSelectedStreamId,
     lastSaved: lastStorageSaved,
     isSaving: isSavingStorage,
     resetToDefaults: resetStorageToDefaults,
@@ -88,6 +91,11 @@ export default function App() {
     initialLinks: INITIAL_MINDMAP_LINKS,
     initialDocs: MOCK_DOCS,
     initialHistory: MOCK_HISTORY,
+    initialTab: 'plan',
+    initialSelectedNodeId: 'billing-node',
+    initialSelectedDocId: 'adr-042',
+    initialSelectedScreenId: 'screen-orders',
+    initialSelectedStreamId: 'stream-billing-kafka',
   });
   const [screens] = useState<PortalScreen[]>(MOCK_SCREENS);
   const [dataFlowNodes] = useState<DataFlowNode[]>(MOCK_DATAFLOW_NODES);

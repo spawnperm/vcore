@@ -4,19 +4,23 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MindmapNode, MindmapLink, DocItem, HistoryEvent } from '../types';
+import { MindmapNode, MindmapLink, DocItem, HistoryEvent, TabType } from '../types';
 import {
   loadPersistedNodes,
   loadPersistedLinks,
   loadPersistedDocs,
   loadPersistedHistory,
+  loadPersistedNavState,
   saveNodesToStorage,
   saveLinksToStorage,
   saveDocsToStorage,
   saveHistoryToStorage,
+  saveNavStateToStorage,
   clearStoredState,
   isLocalStorageAvailable,
   getStoredMetadata,
+  isValidNavState,
+  NavigationContextState,
   STORAGE_KEYS,
 } from '../utils/storage';
 
@@ -25,6 +29,11 @@ interface UseLocalStorageSyncOptions {
   initialLinks: MindmapLink[];
   initialDocs: DocItem[];
   initialHistory: HistoryEvent[];
+  initialTab?: TabType;
+  initialSelectedNodeId?: string;
+  initialSelectedDocId?: string;
+  initialSelectedScreenId?: string;
+  initialSelectedStreamId?: string;
 }
 
 export function useLocalStorageSync({
@@ -32,10 +41,15 @@ export function useLocalStorageSync({
   initialLinks,
   initialDocs,
   initialHistory,
+  initialTab = 'plan',
+  initialSelectedNodeId = 'billing-node',
+  initialSelectedDocId = 'adr-042',
+  initialSelectedScreenId = 'screen-orders',
+  initialSelectedStreamId = 'stream-billing-kafka',
 }: UseLocalStorageSyncOptions) {
   const isAvailable = isLocalStorageAvailable();
 
-  // Initialize state once from localStorage (or fallback to defaults)
+  // Initialize data state once from localStorage (or fallback to defaults)
   const [nodes, setNodes] = useState<MindmapNode[]>(() =>
     loadPersistedNodes(initialNodes)
   );
@@ -48,6 +62,23 @@ export function useLocalStorageSync({
   const [historyEvents, setHistoryEvents] = useState<HistoryEvent[]>(() =>
     loadPersistedHistory(initialHistory)
   );
+
+  // Initialize navigation and context state from localStorage (or fallback to defaults)
+  const defaultNav: NavigationContextState = {
+    activeTab: initialTab,
+    selectedNodeId: initialSelectedNodeId,
+    selectedDocId: initialSelectedDocId,
+    selectedScreenId: initialSelectedScreenId,
+    selectedStreamId: initialSelectedStreamId,
+  };
+
+  const initialLoadedNav = loadPersistedNavState(defaultNav);
+
+  const [activeTab, setActiveTab] = useState<TabType>(initialLoadedNav.activeTab);
+  const [selectedNodeId, setSelectedNodeId] = useState<string>(initialLoadedNav.selectedNodeId);
+  const [selectedDocId, setSelectedDocId] = useState<string>(initialLoadedNav.selectedDocId);
+  const [selectedScreenId, setSelectedScreenId] = useState<string>(initialLoadedNav.selectedScreenId);
+  const [selectedStreamId, setSelectedStreamId] = useState<string>(initialLoadedNav.selectedStreamId);
 
   const [lastSaved, setLastSaved] = useState<Date | null>(() => {
     const meta = getStoredMetadata();
@@ -95,6 +126,24 @@ export function useLocalStorageSync({
     return () => clearTimeout(timer);
   }, [historyEvents]);
 
+  // Persist navigation & selection context
+  useEffect(() => {
+    if (!isMounted.current) return;
+    setIsSaving(true);
+    const timer = setTimeout(() => {
+      saveNavStateToStorage({
+        activeTab,
+        selectedNodeId,
+        selectedDocId,
+        selectedScreenId,
+        selectedStreamId,
+      });
+      setLastSaved(new Date());
+      setIsSaving(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [activeTab, selectedNodeId, selectedDocId, selectedScreenId, selectedStreamId]);
+
   // Mark mounted after first render
   useEffect(() => {
     isMounted.current = true;
@@ -134,6 +183,19 @@ export function useLocalStorageSync({
         } catch {
           // ignore
         }
+      } else if (e.key === STORAGE_KEYS.NAV_STATE && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (isValidNavState(parsed)) {
+            setActiveTab(parsed.activeTab);
+            setSelectedNodeId(parsed.selectedNodeId);
+            setSelectedDocId(parsed.selectedDocId);
+            setSelectedScreenId(parsed.selectedScreenId);
+            setSelectedStreamId(parsed.selectedStreamId);
+          }
+        } catch {
+          // ignore
+        }
       }
     };
 
@@ -148,8 +210,23 @@ export function useLocalStorageSync({
     setLinks(initialLinks);
     setDocs(initialDocs);
     setHistoryEvents(initialHistory);
+    setActiveTab(defaultNav.activeTab);
+    setSelectedNodeId(defaultNav.selectedNodeId);
+    setSelectedDocId(defaultNav.selectedDocId);
+    setSelectedScreenId(defaultNav.selectedScreenId);
+    setSelectedStreamId(defaultNav.selectedStreamId);
     setLastSaved(null);
-  }, [initialNodes, initialLinks, initialDocs, initialHistory]);
+  }, [
+    initialNodes,
+    initialLinks,
+    initialDocs,
+    initialHistory,
+    defaultNav.activeTab,
+    defaultNav.selectedNodeId,
+    defaultNav.selectedDocId,
+    defaultNav.selectedScreenId,
+    defaultNav.selectedStreamId,
+  ]);
 
   return {
     nodes,
@@ -160,6 +237,16 @@ export function useLocalStorageSync({
     setDocs,
     historyEvents,
     setHistoryEvents,
+    activeTab,
+    setActiveTab,
+    selectedNodeId,
+    setSelectedNodeId,
+    selectedDocId,
+    setSelectedDocId,
+    selectedScreenId,
+    setSelectedScreenId,
+    selectedStreamId,
+    setSelectedStreamId,
     lastSaved,
     isSaving,
     isStorageAvailable: isAvailable,
