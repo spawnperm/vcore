@@ -24,6 +24,7 @@ import {
 } from './mockData';
 import { executeDshCommand, streamAudioOrTextToGeminiFlash } from './services/dshService';
 import { useVoiceInput } from './hooks/useVoiceInput';
+import { useLocalStorageSync } from './hooks/useLocalStorageSync';
 
 import { Header } from './components/Header';
 import { PlayerBar } from './components/PlayerBar';
@@ -69,14 +70,28 @@ export default function App() {
   const [progressPercent, setProgressPercent] = useState(60);
   const [activeAgentAction, setActiveAgentAction] = useState('Billing-агент: генерация saga-компенсатора');
 
-  // Data state
-  const [nodes, setNodes] = useState<MindmapNode[]>(INITIAL_MINDMAP_NODES);
-  const [links, setLinks] = useState<MindmapLink[]>(INITIAL_MINDMAP_LINKS);
-  const [docs, setDocs] = useState<DocItem[]>(MOCK_DOCS);
+  // Persistent data state synced with localStorage (nodes, links, docs, history)
+  const {
+    nodes,
+    setNodes,
+    links,
+    setLinks,
+    docs,
+    setDocs,
+    historyEvents,
+    setHistoryEvents,
+    lastSaved: lastStorageSaved,
+    isSaving: isSavingStorage,
+    resetToDefaults: resetStorageToDefaults,
+  } = useLocalStorageSync({
+    initialNodes: INITIAL_MINDMAP_NODES,
+    initialLinks: INITIAL_MINDMAP_LINKS,
+    initialDocs: MOCK_DOCS,
+    initialHistory: MOCK_HISTORY,
+  });
   const [screens] = useState<PortalScreen[]>(MOCK_SCREENS);
   const [dataFlowNodes] = useState<DataFlowNode[]>(MOCK_DATAFLOW_NODES);
   const [dataFlowStreams] = useState<DataFlowStream[]>(MOCK_DATAFLOW_STREAMS);
-  const [historyEvents, setHistoryEvents] = useState<HistoryEvent[]>(MOCK_HISTORY);
   const [chatMessages, setChatMessages] = useState<AgentChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [isDshProcessing, setIsDshProcessing] = useState<boolean>(false);
 
@@ -441,7 +456,7 @@ export default function App() {
       details: 'Коммит успешно сформирован и запушен в ветку feature/refund-endpoint.',
       relatedNodeId: 'billing-node',
     };
-    setHistoryEvents([newEvent, ...historyEvents]);
+    setHistoryEvents((prev) => [newEvent, ...prev]);
     setActiveAgentAction('Коммит #4823 успешно зафиксирован');
   };
 
@@ -459,7 +474,7 @@ export default function App() {
       details: `Успешно выполнен откат состояния до точки ${ev.time}. Конфигурация синхронизирована.`,
       relatedNodeId: ev.relatedNodeId,
     };
-    setHistoryEvents([rollbackEvent, ...historyEvents]);
+    setHistoryEvents((prev) => [rollbackEvent, ...prev]);
     setActiveAgentAction(`Откат выполнен: ${ev.title}`);
   };
 
@@ -478,7 +493,36 @@ export default function App() {
       details: 'Статус архитектурного решения переведён в «Утверждён».',
       relatedNodeId: 'billing-node',
     };
-    setHistoryEvents([ev, ...historyEvents]);
+    setHistoryEvents((prev) => [ev, ...prev]);
+  };
+
+  // Document Content Update Handler (persists to localStorage)
+  const handleUpdateDoc = (docId: string, updatedContent: string) => {
+    setDocs((prev) =>
+      prev.map((d) =>
+        d.id === docId
+          ? { ...d, content: updatedContent, lastModified: 'Только что (сохранено)' }
+          : d
+      )
+    );
+    setActiveAgentAction('Документ обновлён и синхронизирован в localStorage');
+  };
+
+  // Reset entire local storage to initial defaults
+  const handleResetAllStorage = () => {
+    if (window.confirm('Сбросить все сохранённые данные (узлы, доки, историю) к исходному состоянию?')) {
+      resetStorageToDefaults();
+      setActiveAgentAction('Локальное хранилище очищено, состояние сброшено к исходному');
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          sender: 'system',
+          text: '🔄 Локальное хранилище очищено: граф узлов, документы и история событий возвращены к исходному состоянию.',
+          timestamp: 'Только что',
+        },
+      ]);
+    }
   };
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) || nodes[0];
@@ -496,6 +540,9 @@ export default function App() {
           onSearchChange={setSearchQuery}
           isVoiceListening={isVoiceListening}
           onToggleVoice={toggleVoiceInput}
+          isSavingStorage={isSavingStorage}
+          lastStorageSaved={lastStorageSaved}
+          onResetStorage={handleResetAllStorage}
         />
 
         {/* 2. Main Synchronized Tab Switcher Bar matching user ASCII diagram */}
@@ -631,6 +678,7 @@ export default function App() {
                 handleSendMessage(`Давай обсудим раздел документации: ${title}`);
               }}
               onApproveDoc={handleApproveDoc}
+              onUpdateDoc={handleUpdateDoc}
             />
           )}
 

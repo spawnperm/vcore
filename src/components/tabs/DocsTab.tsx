@@ -27,6 +27,7 @@ interface DocsTabProps {
   onOpenPrModal: () => void;
   onDiscussWithAgent: (docTitle: string) => void;
   onApproveDoc?: (docId: string) => void;
+  onUpdateDoc?: (docId: string, updatedContent: string) => void;
 }
 
 export const DocsTab: React.FC<DocsTabProps> = ({
@@ -37,6 +38,7 @@ export const DocsTab: React.FC<DocsTabProps> = ({
   onOpenPrModal,
   onDiscussWithAgent,
   onApproveDoc,
+  onUpdateDoc,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState('');
@@ -68,7 +70,11 @@ export const DocsTab: React.FC<DocsTabProps> = ({
   };
 
   const handleSaveEdit = () => {
-    currentDoc.content = editedContent;
+    if (onUpdateDoc) {
+      onUpdateDoc(currentDoc.id, editedContent);
+    } else {
+      currentDoc.content = editedContent;
+    }
     setIsEditing(false);
   };
 

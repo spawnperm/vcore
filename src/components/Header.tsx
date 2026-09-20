@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   FileText,
   Sparkles,
+  Database,
+  RefreshCw,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -18,6 +20,9 @@ interface HeaderProps {
   onSearchChange: (q: string) => void;
   isVoiceListening?: boolean;
   onToggleVoice?: () => void;
+  isSavingStorage?: boolean;
+  lastStorageSaved?: Date | null;
+  onResetStorage?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,6 +33,9 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   isVoiceListening = false,
   onToggleVoice,
+  isSavingStorage = false,
+  lastStorageSaved,
+  onResetStorage,
 }) => {
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -153,6 +161,38 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Right: Notifications & Live Status (with margin-right to prevent overlap with sidebar collapse toggle) */}
       <div className="flex items-center gap-2 mr-9 sm:mr-10">
+        {/* Local Storage Sync Indicator */}
+        <div
+          id="local-storage-sync-badge"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 shadow-inner"
+          title={
+            isSavingStorage
+              ? 'Синхронизация данных с localStorage...'
+              : `Состояние сохранено в localStorage${lastStorageSaved ? ` (${lastStorageSaved.toLocaleTimeString()})` : ''}`
+          }
+        >
+          {isSavingStorage ? (
+            <RefreshCw className="w-3 h-3 text-amber-400 animate-spin" />
+          ) : (
+            <Database className="w-3 h-3 text-emerald-400" />
+          )}
+          <span className="text-slate-400">sync:</span>
+          <span className={isSavingStorage ? 'text-amber-300 font-semibold' : 'text-emerald-400 font-semibold'}>
+            {isSavingStorage ? 'сохранение' : 'localStorage'}
+          </span>
+          {onResetStorage && (
+            <button
+              id="reset-storage-btn"
+              type="button"
+              onClick={onResetStorage}
+              className="ml-1 text-[10px] text-slate-500 hover:text-rose-400 cursor-pointer transition-colors"
+              title="Сбросить локальное хранилище до заводских настроек"
+            >
+              (сброс)
+            </button>
+          )}
+        </div>
+
         {/* DSH Gateway & Live API Status */}
         <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono shadow-inner">
           <div className="flex items-center gap-1.5">
