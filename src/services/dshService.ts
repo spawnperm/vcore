@@ -14,9 +14,16 @@ export interface DshGatewayStatus {
   capabilities: string[];
 }
 
+function getApiUrl(endpoint: string): string {
+  if (typeof window !== 'undefined') {
+    return endpoint;
+  }
+  return `http://localhost:3000${endpoint}`;
+}
+
 export async function fetchDshStatus(): Promise<DshGatewayStatus> {
   try {
-    const res = await fetch('/api/dsh/status');
+    const res = await fetch(getApiUrl('/api/dsh/status'));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -50,7 +57,7 @@ export async function executeDshCommand(
   isVoiceInput: boolean = false
 ): Promise<DshExecutionResult> {
   try {
-    const res = await fetch('/api/dsh/execute', {
+    const res = await fetch(getApiUrl('/api/dsh/execute'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -206,7 +213,7 @@ export async function streamAudioOrTextToGeminiFlash(
   }
 
   try {
-    const response = await fetch('/api/dsh/stream', {
+    const response = await fetch(getApiUrl('/api/dsh/stream'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

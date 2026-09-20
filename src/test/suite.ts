@@ -14,6 +14,10 @@ import { runPlanTabGraphTestSuite } from './planTabGraph.test.ts';
 import { runStorageTestSuite } from './storage.test.ts';
 import { runNatsTestSuite } from './nats.test.ts';
 import { runNocoBaseTestSuite } from './nocobase.test.ts';
+import { runDiffUtilsTestSuite } from './diffUtils.test.ts';
+import { runDomainCoreTestSuite } from './domainCore.test.ts';
+import { runCriticalPathIsolatedTestSuite } from './criticalPath.test.ts';
+import { runDshServiceTestSuite } from './dshService.test.ts';
 
 let passed = 0;
 let failed = 0;
@@ -123,6 +127,30 @@ async function runTests() {
   // Test 7: NocoBase Architecture: Custom Collections, Fields & UI-Schema Engine
   console.log('\n');
   runNocoBaseTestSuite();
+
+  // Test 8: Diff Engine & LCS Comparison
+  console.log('\n');
+  const diffRes = runDiffUtilsTestSuite();
+  passed += diffRes.passed;
+  failed += diffRes.failed;
+
+  // Test 9: Domain Core Models & Repository Invariants
+  console.log('\n');
+  const domainRes = runDomainCoreTestSuite();
+  passed += domainRes.passed;
+  failed += domainRes.failed;
+
+  // Test 10: Critical Path Isolated Algorithm
+  console.log('\n');
+  const cpRes = runCriticalPathIsolatedTestSuite();
+  passed += cpRes.passed;
+  failed += cpRes.failed;
+
+  // Test 11: DSH Gateway & Synthesis Service
+  console.log('\n');
+  const dshRes = await runDshServiceTestSuite();
+  passed += dshRes.passed;
+  failed += dshRes.failed;
 
   console.log('\n' + '='.repeat(50));
   console.log(`📊 Test Results: ${passed} passed, ${failed} failed`);
