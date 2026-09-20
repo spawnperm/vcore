@@ -2,8 +2,11 @@ import React, { useState, useRef, useMemo } from 'react';
 import {
   MindmapNode,
   MindmapLink,
+  HistoryEvent,
 } from '../../types';
 import { calculateCriticalPath } from '../../utils/criticalPath';
+import { getNodeHistoryEvents } from '../../utils/nodeHistory';
+import { NodeHistoryInspector } from './NodeHistoryInspector';
 import {
   ZoomIn,
   ZoomOut,
@@ -21,6 +24,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Route,
+  Clock,
 } from 'lucide-react';
 
 interface PlanTabProps {
@@ -29,6 +33,10 @@ interface PlanTabProps {
   selectedNodeId: string;
   onSelectNode: (nodeId: string) => void;
   onUpdateNodeProgress?: (nodeId: string, progress: number) => void;
+  historyEvents?: HistoryEvent[];
+  onNavigateToHistoryTab?: (nodeId?: string) => void;
+  onRollbackEvent?: (eventId: string) => void;
+  onOpenCommitModal?: (nodeId?: string) => void;
 }
 
 export const PlanTab: React.FC<PlanTabProps> = ({
@@ -36,6 +44,10 @@ export const PlanTab: React.FC<PlanTabProps> = ({
   links,
   selectedNodeId,
   onSelectNode,
+  historyEvents = [],
+  onNavigateToHistoryTab,
+  onRollbackEvent,
+  onOpenCommitModal,
 }) => {
   const [zoom, setZoom] = useState(0.9);
   const [pan, setPan] = useState({ x: 50, y: 100 });
@@ -43,6 +55,7 @@ export const PlanTab: React.FC<PlanTabProps> = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [highlightCriticalPath, setHighlightCriticalPath] = useState<boolean>(true);
+  const [isHistoryInspectorOpen, setIsHistoryInspectorOpen] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -80,6 +93,20 @@ export const PlanTab: React.FC<PlanTabProps> = ({
   } = useMemo(() => {
     return calculateCriticalPath(nodes, links, selectedNodeId);
   }, [nodes, links, selectedNodeId]);
+
+  // Precompute history event count per node for instant badges
+  const historyCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const n of nodes) {
+      map.set(n.id, getNodeHistoryEvents(historyEvents, n).length);
+    }
+    return map;
+  }, [nodes, historyEvents]);
+
+  const selectedNodeHistoryCount = useMemo(() => {
+    if (!selectedNode) return 0;
+    return historyCountMap.get(selectedNode.id) || 0;
+  }, [selectedNode, historyCountMap]);
 
   const filteredNodes = nodes.filter((n) => {
     if (filterCategory === 'all') return true;
@@ -188,7 +215,7 @@ export const PlanTab: React.FC<PlanTabProps> = ({
           <button
             id="toggle-critical-path-btn"
             onClick={() => setHighlightCriticalPath((prev) => !prev)}
-            className={`px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all ${
+            className={`px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
               highlightCriticalPath
                 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm shadow-amber-950'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -200,6 +227,28 @@ export const PlanTab: React.FC<PlanTabProps> = ({
             {highlightCriticalPath && blockerNodeIds.size > 0 && (
               <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-bold">
                 {blockerNodeIds.size}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Toggle Node History Inspector */}
+        <div className="flex items-center border-r border-slate-800 pr-2 mr-1">
+          <button
+            id="toggle-node-history-btn"
+            onClick={() => setIsHistoryInspectorOpen((prev) => !prev)}
+            className={`px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+              isHistoryInspectorOpen
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-950'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+            title="Просмотр истории изменений выбранного узла"
+          >
+            <Clock className={`w-3.5 h-3.5 ${isHistoryInspectorOpen ? 'text-cyan-400' : 'text-slate-400'}`} />
+            <span>История узла</span>
+            {selectedNodeHistoryCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] bg-cyan-500 text-slate-950 font-bold">
+                {selectedNodeHistoryCount}
               </span>
             )}
           </button>
@@ -448,6 +497,7 @@ export const PlanTab: React.FC<PlanTabProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectNode(node.id);
+                  setIsHistoryInspectorOpen(true);
                 }}
                 style={{
                   left: `${node.x}px`,
@@ -501,21 +551,48 @@ export const PlanTab: React.FC<PlanTabProps> = ({
                   />
                 </div>
 
-                {/* Active Agent Badge if assigned */}
-                {node.agent && (
-                  <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
-                    <div className="flex items-center gap-1 text-cyan-300 font-medium truncate">
+                {/* Active Agent Badge & History count button */}
+                <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                  {node.agent ? (
+                    <div className="flex items-center gap-1 text-cyan-300 font-medium truncate max-w-[110px]">
                       <Bot className="w-3 h-3 text-cyan-400 shrink-0" />
                       <span className="truncate">{node.agent}</span>
                     </div>
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                  </div>
-                )}
+                  ) : (
+                    <span className="text-slate-500 text-[10px]">Архитектура</span>
+                  )}
+                  {historyCountMap.get(node.id) !== undefined && historyCountMap.get(node.id)! > 0 ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectNode(node.id);
+                        setIsHistoryInspectorOpen(true);
+                      }}
+                      className="px-1.5 py-0.5 rounded bg-slate-900/90 hover:bg-cyan-950 text-slate-300 hover:text-cyan-300 border border-slate-700/80 hover:border-cyan-700 flex items-center gap-1 transition-colors cursor-pointer"
+                      title={`История изменений: ${historyCountMap.get(node.id)} соб.`}
+                    >
+                      <Clock className="w-2.5 h-2.5 text-cyan-400" />
+                      <span>{historyCountMap.get(node.id)} соб.</span>
+                    </button>
+                  ) : null}
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Node History Inspector Panel */}
+      <NodeHistoryInspector
+        node={selectedNode}
+        historyEvents={historyEvents}
+        isOpen={isHistoryInspectorOpen}
+        onClose={() => setIsHistoryInspectorOpen(false)}
+        onNavigateToHistoryTab={onNavigateToHistoryTab}
+        onRollbackEvent={onRollbackEvent}
+        onOpenCommitModal={onOpenCommitModal}
+      />
     </div>
   );
 };

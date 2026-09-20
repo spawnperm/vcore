@@ -18,6 +18,7 @@ import { runDiffUtilsTestSuite } from './diffUtils.test.ts';
 import { runDomainCoreTestSuite } from './domainCore.test.ts';
 import { runCriticalPathIsolatedTestSuite } from './criticalPath.test.ts';
 import { runDshServiceTestSuite } from './dshService.test.ts';
+import { runNodeHistoryTestSuite } from './nodeHistory.test.ts';
 
 let passed = 0;
 let failed = 0;
@@ -151,6 +152,12 @@ async function runTests() {
   const dshRes = await runDshServiceTestSuite();
   passed += dshRes.passed;
   failed += dshRes.failed;
+
+  // Test 12: Node History Integration for PlanTab
+  console.log('\n');
+  const historyRes = runNodeHistoryTestSuite();
+  passed += historyRes.passed;
+  failed += historyRes.failed;
 
   console.log('\n' + '='.repeat(50));
   console.log(`📊 Test Results: ${passed} passed, ${failed} failed`);

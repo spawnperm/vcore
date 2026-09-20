@@ -708,6 +708,13 @@ export default function App() {
               selectedNodeId={selectedNodeId}
               onSelectNode={handleSelectNode}
               onUpdateNodeProgress={handleUpdateNodeProgress}
+              historyEvents={historyEvents}
+              onNavigateToHistoryTab={(nodeId) => {
+                if (nodeId) handleSelectNode(nodeId);
+                setActiveTab('history');
+              }}
+              onRollbackEvent={handleRollbackEvent}
+              onOpenCommitModal={() => setIsCommitModalOpen(true)}
             />
           )}
 
