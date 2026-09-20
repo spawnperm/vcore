@@ -67,6 +67,25 @@ export interface PortalScreen {
   };
 }
 
+export interface NodeLoadMetrics {
+  rps: number;
+  peakRps: number;
+  cpuPercent: number;
+  memoryMb: number;
+  memoryLimitMb: number;
+  p50LatencyMs: number;
+  p95LatencyMs: number;
+  p99LatencyMs: number;
+  errorRate: number; // percentage e.g. 0.04
+  replicas: { current: number; max: number };
+  activeConnections?: number;
+  queueLag?: number;
+  networkInMb?: number;
+  networkOutMb?: number;
+  healthScore: number;
+  uptime: string;
+}
+
 export interface DataFlowNode {
   id: string;
   name: string;
@@ -77,6 +96,9 @@ export interface DataFlowNode {
   y: number;
   isNew?: boolean;
   piiData?: boolean;
+  technology?: string;
+  version?: string;
+  metrics?: NodeLoadMetrics;
 }
 
 export interface DataFlowStream {
